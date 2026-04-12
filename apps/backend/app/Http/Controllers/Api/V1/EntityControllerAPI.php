@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Entity\StoreEntityRequest;
+use App\Http\Requests\Entity\UpdateEntityRequest;
 use App\Models\EntityModel;
 use App\Services\EntityService;
 use DomainException;
@@ -53,5 +54,46 @@ class EntityControllerAPI extends Controller
             'message' => 'Entity created successfully',
             'data' => $entity,
         ], 201);
+    }
+
+    public function show(EntityModel $entity): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Entity retrieved successfully',
+            'data' => $entity,
+        ], 200);
+    }
+
+    public function update(UpdateEntityRequest $request, EntityModel $entity): JsonResponse
+    {
+        try {
+            $entity = $this->service->update($entity, $request->validated());
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Entity updated successfully',
+            'data' => $entity,
+        ], 200);
+    }
+
+    public function destroy(EntityModel $entity): JsonResponse
+    {
+        if (! $entity->is_active) {
+            return response()->json([
+                'message' => 'Entity already inactive',
+                'data' => $entity,
+            ], 200);
+        }
+
+        $entity->update(['is_active' => false]);
+
+        return response()->json([
+            'message' => 'Entity inactivated successfully',
+            'data' => $entity->refresh(),
+        ], 200);
     }
 }

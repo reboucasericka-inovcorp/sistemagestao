@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Entity;
 
+use App\Models\EntityModel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -15,7 +16,8 @@ class UpdateEntityRequest extends FormRequest
 
     public function rules(): array
     {
-        $entityId = $this->route('entity');
+        $entity = $this->route('entity');
+        $entityId = $entity instanceof EntityModel ? $entity->getKey() : $entity;
 
         return [
             'number' => ['sometimes', 'string', 'max:50', Rule::unique('entities', 'number')->ignore($entityId)],

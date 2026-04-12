@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EntityModel extends Model
 {
@@ -70,5 +71,10 @@ class EntityModel extends Model
     public function setEmailAttribute(?string $value): void
     {
         $this->attributes['email'] = $value ? strtolower($value) : null;
+    }
+
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(ContactModel::class, 'entity_id');
     }
 }
