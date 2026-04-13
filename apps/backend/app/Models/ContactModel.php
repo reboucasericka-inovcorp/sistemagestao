@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasActivityLog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ContactModel extends Model
 {
+    use HasActivityLog;
+
     protected $table = 'contacts';
 
     protected $fillable = [
@@ -48,5 +51,10 @@ class ContactModel extends Model
     public function setEmailAttribute(?string $value): void
     {
         $this->attributes['email'] = $value ? strtolower($value) : null;
+    }
+
+    protected function activityLogName(): string
+    {
+        return 'contacts';
     }
 }

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasActivityLog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EntityModel extends Model
 {
+    use HasActivityLog;
+
     protected $table = 'entities';
 
     protected $fillable = [
@@ -76,5 +79,10 @@ class EntityModel extends Model
     public function contacts(): HasMany
     {
         return $this->hasMany(ContactModel::class, 'entity_id');
+    }
+
+    protected function activityLogName(): string
+    {
+        return 'entities';
     }
 }

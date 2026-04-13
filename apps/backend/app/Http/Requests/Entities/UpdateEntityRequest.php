@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Entity;
+namespace App\Http\Requests\Entities;
 
 use App\Models\EntityModel;
 use Illuminate\Foundation\Http\FormRequest;

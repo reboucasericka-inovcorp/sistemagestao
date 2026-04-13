@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1;
+namespace App\Http\Controllers\Api\V1\Entities;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Entity\StoreEntityRequest;
-use App\Http\Requests\Entity\UpdateEntityRequest;
+use App\Http\Requests\Entities\StoreEntityRequest;
+use App\Http\Requests\Entities\UpdateEntityRequest;
 use App\Models\EntityModel;
-use App\Services\EntityService;
+use App\Services\Entities\EntityService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
