@@ -52,3 +52,4 @@ lerna-debug.log*
 # ========================
 _ide_helper.php
 auth.json
+docs/
