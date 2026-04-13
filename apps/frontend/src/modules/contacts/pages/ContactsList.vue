@@ -1,18 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import ContactListRow from '@/modules/contacts/components/ContactListRow.vue'
-import { listContacts } from '@/modules/contacts/services/contactService'
-import type { Contact } from '@/modules/contacts/types/contact'
-
-const contacts = ref<Contact[]>([])
-
-const load = async () => {
-  contacts.value = await listContacts()
-}
-
-onMounted(() => {
-  void load()
-})
+import ContactsTable from '@/modules/contacts/components/ContactsTable.vue'
 </script>
 
 <template>
@@ -24,9 +11,7 @@ onMounted(() => {
       <RouterLink to="/entities">Entidades</RouterLink>
     </p>
     <p class="hint">Relacionados com entidades; função configurável (ver `docs/guide.md`).</p>
-    <ul class="list">
-      <ContactListRow v-for="c in contacts" :key="c.id" :contact="c" />
-    </ul>
+    <ContactsTable />
   </div>
 </template>
 
@@ -47,12 +32,5 @@ h1 {
   font-size: 0.85rem;
   color: var(--text);
   margin-bottom: 1rem;
-}
-
-.list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-width: 40rem;
 }
 </style>
