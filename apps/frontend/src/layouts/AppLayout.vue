@@ -22,7 +22,8 @@ const navGroups: NavGroup[] = [
       { label: 'Propostas', to: '/proposals' },
       { label: 'Encomendas — Clientes', to: '/client-orders' },
       { label: 'Encomendas — Fornecedores', to: '/supplier-orders' },
-      { label: 'Artigos', to: '/articles' },
+      { label: 'Artigos', to: '/settings/articles' },
+      { label: 'IVA', to: '/settings/vat' },
     ],
   },
   {
@@ -38,7 +39,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: 'Utilizadores', to: '/users' },
       { label: 'Permissões', to: '/permissions' },
-      { label: 'Logs', to: '/logs' },
+      { label: 'Logs', to: '/settings/logs' },
       { label: 'Configurações', to: '/settings' },
       { label: 'Empresa', to: '/company' },
     ],
