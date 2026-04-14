@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\Settings\Vat;
 use App\Models\Settings\VatModel;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class VatApiTest extends TestCase
@@ -13,7 +14,9 @@ class VatApiTest extends TestCase
 
     public function test_it_lists_vat_entries_with_meta(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $user = User::factory()->create();
+        $this->grantPermissions($user, ['vat.read']);
+        $this->actingAs($user, 'sanctum');
         VatModel::query()->create([
             'name' => 'IVA 23%',
             'rate' => '23.00',
@@ -33,7 +36,9 @@ class VatApiTest extends TestCase
 
     public function test_it_creates_updates_and_inactivates_vat_entry(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $user = User::factory()->create();
+        $this->grantPermissions($user, ['vat.create', 'vat.read', 'vat.update', 'vat.delete']);
+        $this->actingAs($user, 'sanctum');
 
         $createResponse = $this->postJson('/api/v1/vat', [
             'name' => 'IVA reduzido',
@@ -60,5 +65,20 @@ class VatApiTest extends TestCase
         $deleteResponse
             ->assertOk()
             ->assertJsonPath('data.is_active', false);
+    }
+
+    /**
+     * @param list<string> $permissions
+     */
+    private function grantPermissions(User $user, array $permissions): void
+    {
+        foreach ($permissions as $permission) {
+            Permission::query()->firstOrCreate([
+                'name' => $permission,
+                'guard_name' => 'sanctum',
+            ]);
+        }
+
+        $user->givePermissionTo($permissions);
     }
 }

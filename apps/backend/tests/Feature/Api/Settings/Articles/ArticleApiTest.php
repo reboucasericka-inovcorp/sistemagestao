@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class ArticleApiTest extends TestCase
@@ -16,7 +17,9 @@ class ArticleApiTest extends TestCase
 
     public function test_it_lists_articles_with_meta(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $user = User::factory()->create();
+        $this->grantPermissions($user, ['articles.read']);
+        $this->actingAs($user, 'sanctum');
         $vat = VatModel::query()->create([
             'name' => 'IVA 23%',
             'rate' => '23.00',
@@ -43,7 +46,9 @@ class ArticleApiTest extends TestCase
 
     public function test_it_creates_updates_uploads_photo_and_inactivates_article(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $user = User::factory()->create();
+        $this->grantPermissions($user, ['articles.create', 'articles.read', 'articles.update', 'articles.delete']);
+        $this->actingAs($user, 'sanctum');
         Storage::fake('public');
         $vat = VatModel::query()->create([
             'name' => 'IVA reduzido',
@@ -69,7 +74,7 @@ class ArticleApiTest extends TestCase
 
         $id = (int) $createResponse->json('data.id');
         $photoPath = ArticleModel::query()->findOrFail($id)->photo_path;
-        Storage::disk('public')->assertExists($photoPath);
+        $this->assertTrue(Storage::disk('public')->exists($photoPath));
 
         $updateResponse = $this->putJson("/api/v1/articles/{$id}", [
             'name' => 'Produto B Atualizado',
@@ -82,5 +87,20 @@ class ArticleApiTest extends TestCase
 
         $deleteResponse = $this->deleteJson("/api/v1/articles/{$id}");
         $deleteResponse->assertOk()->assertJsonPath('data.is_active', false);
+    }
+
+    /**
+     * @param list<string> $permissions
+     */
+    private function grantPermissions(User $user, array $permissions): void
+    {
+        foreach ($permissions as $permission) {
+            Permission::query()->firstOrCreate([
+                'name' => $permission,
+                'guard_name' => 'sanctum',
+            ]);
+        }
+
+        $user->givePermissionTo($permissions);
     }
 }

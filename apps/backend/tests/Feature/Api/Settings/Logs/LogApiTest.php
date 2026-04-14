@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\Settings\Logs;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class LogApiTest extends TestCase
@@ -14,6 +15,7 @@ class LogApiTest extends TestCase
     public function test_it_lists_activity_logs_with_meta(): void
     {
         $user = User::factory()->create(['name' => 'John Doe']);
+        $this->grantPermissions($user, ['logs.read']);
         $this->actingAs($user, 'sanctum');
 
         $this->createLog([
@@ -33,17 +35,20 @@ class LogApiTest extends TestCase
                 'data',
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
             ])
-            ->assertJsonPath('data.0.user_name', 'John Doe')
-            ->assertJsonPath('data.0.menu', 'Articles')
-            ->assertJsonPath('data.0.action', 'Criado')
-            ->assertJsonPath('data.0.device', 'Chrome')
-            ->assertJsonPath('data.0.ip_address', '127.0.0.1');
+            ->assertJsonFragment([
+                'user_name' => 'John Doe',
+                'menu' => 'articles',
+                'action' => 'created',
+                'device' => 'Chrome',
+                'ip_address' => '127.0.0.1',
+            ]);
     }
 
     public function test_it_filters_activity_logs_by_user(): void
     {
         $john = User::factory()->create(['name' => 'John Doe']);
         $jane = User::factory()->create(['name' => 'Jane Smith']);
+        $this->grantPermissions($john, ['logs.read']);
         $this->actingAs($john, 'sanctum');
 
         $this->createLog([
@@ -70,6 +75,7 @@ class LogApiTest extends TestCase
     public function test_it_filters_activity_logs_by_menu(): void
     {
         $user = User::factory()->create();
+        $this->grantPermissions($user, ['logs.read']);
         $this->actingAs($user, 'sanctum');
 
         $this->createLog([
@@ -90,7 +96,7 @@ class LogApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.menu', 'Articles');
+            ->assertJsonPath('data.0.menu', 'articles');
     }
 
     private function createLog(array $payload): void
@@ -105,5 +111,20 @@ class LogApiTest extends TestCase
             'event' => null,
             'properties' => [],
         ], $payload));
+    }
+
+    /**
+     * @param list<string> $permissions
+     */
+    private function grantPermissions(User $user, array $permissions): void
+    {
+        foreach ($permissions as $permission) {
+            Permission::query()->firstOrCreate([
+                'name' => $permission,
+                'guard_name' => 'sanctum',
+            ]);
+        }
+
+        $user->givePermissionTo($permissions);
     }
 }
