@@ -7,6 +7,7 @@ export const API_ROUTES = {
   contactFunctions: '/contact-functions',
 
   // Calendar
+  calendarEvents: '/calendar-events',
   calendarTypes: '/calendar-types',
   calendarActions: '/calendar-actions',
 
@@ -19,5 +20,10 @@ export const API_ROUTES = {
   company: '/company',
 
   // Logs
-  logs: '/logs',
+  logs: '/activity-logs',
+
+  // Access management
+  users: '/users',
+  roles: '/roles',
+  rolesPermissionsCatalog: '/roles-permissions-catalog',
 }
