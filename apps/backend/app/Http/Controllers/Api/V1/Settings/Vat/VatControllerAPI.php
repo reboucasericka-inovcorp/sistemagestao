@@ -28,12 +28,11 @@ class VatControllerAPI extends Controller
             'direction',
             'active_only',
         ]));
-        $resourceCollection = VatResource::collection($vats);
-        $serialized = $resourceCollection->resolve($request);
+        $serializedItems = VatResource::collection($vats->items())->resolve($request);
 
         return response()->json([
             'message' => 'VAT entries retrieved successfully',
-            'data' => $serialized['data'] ?? [],
+            'data' => $serializedItems,
             'meta' => [
                 'current_page' => $vats->currentPage(),
                 'last_page' => $vats->lastPage(),

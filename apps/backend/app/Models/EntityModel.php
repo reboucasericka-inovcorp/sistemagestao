@@ -3,9 +3,10 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasActivityLog;
+use App\Models\Settings\CountryModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EntityModel extends Model
 {
@@ -14,32 +15,27 @@ class EntityModel extends Model
     protected $table = 'entities';
 
     protected $fillable = [
+        'type',
         'number',
         'nif',
         'name',
         'address',
         'postal_code',
         'city',
-        'country',
+        'country_id',
         'phone',
         'mobile',
         'website',
         'email',
         'gdpr_consent',
         'is_active',
-        'is_client',
-        'is_supplier',
         'notes',
     ];
 
     protected $casts = [
         'gdpr_consent' => 'boolean',
         'is_active' => 'boolean',
-        'is_client' => 'boolean',
-        'is_supplier' => 'boolean',
     ];
-
-    protected $appends = ['type'];
 
     public function scopeActive(Builder $query): Builder
     {
@@ -48,22 +44,12 @@ class EntityModel extends Model
 
     public function scopeClients(Builder $query): Builder
     {
-        return $query->where('is_client', true);
+        return $query->whereIn('type', ['client', 'both']);
     }
 
     public function scopeSuppliers(Builder $query): Builder
     {
-        return $query->where('is_supplier', true);
-    }
-
-    public function getTypeAttribute(): string
-    {
-        return match (true) {
-            $this->is_client && $this->is_supplier => 'both',
-            $this->is_client => 'client',
-            $this->is_supplier => 'supplier',
-            default => 'none',
-        };
+        return $query->whereIn('type', ['supplier', 'both']);
     }
 
     public function setNifAttribute(?string $value): void
@@ -76,9 +62,9 @@ class EntityModel extends Model
         $this->attributes['email'] = $value ? strtolower($value) : null;
     }
 
-    public function contacts(): HasMany
+    public function country(): BelongsTo
     {
-        return $this->hasMany(ContactModel::class, 'entity_id');
+        return $this->belongsTo(CountryModel::class, 'country_id');
     }
 
     protected function activityLogName(): string

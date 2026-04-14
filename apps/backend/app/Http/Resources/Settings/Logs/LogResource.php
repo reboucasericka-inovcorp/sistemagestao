@@ -10,32 +10,14 @@ class LogResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'date' => $this->created_at?->format('d/m/Y'),
             'time' => $this->created_at?->format('H:i'),
             'user_name' => $this->causer?->name ?? 'Sistema',
-            'menu' => $this->formatMenu($this->log_name),
-            'action' => $this->formatAction($this->description),
+            'menu' => $this->log_name ?? 'system',
+            'action' => $this->description ?? 'unknown',
             'device' => $this->properties['device'] ?? 'Unknown',
             'ip_address' => $this->properties['ip'] ?? 'N/A',
         ];
-    }
-
-    private function formatMenu(?string $menu): string
-    {
-        if (! $menu) {
-            return 'Sistema';
-        }
-
-        return ucfirst($menu);
-    }
-
-    private function formatAction(?string $action): string
-    {
-        return match ($action) {
-            'created' => 'Criado',
-            'updated' => 'Atualizado',
-            'deleted' => 'Inativado',
-            default => $action ?? 'N/A',
-        };
     }
 }

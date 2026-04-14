@@ -20,7 +20,7 @@ class UpdateCalendarActionRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'string', 'max:120', Rule::unique('calendar_actions', 'name')->ignore($id)],
-            'calendar_type_id' => ['nullable', 'integer', Rule::exists('calendar_types', 'id')],
+            'calendar_type_id' => ['sometimes', 'integer', Rule::exists('calendar_types', 'id')],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

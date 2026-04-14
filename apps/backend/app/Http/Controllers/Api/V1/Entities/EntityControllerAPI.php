@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Entities;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Entities\StoreEntityRequest;
 use App\Http\Requests\Entities\UpdateEntityRequest;
+use App\Http\Resources\Entities\EntityResource;
 use App\Models\EntityModel;
 use App\Services\Entities\EntityService;
 use DomainException;
@@ -16,28 +17,31 @@ class EntityControllerAPI extends Controller
     public function __construct(
         protected EntityService $service
     ) {
-        $this->authorizeResource(EntityModel::class, 'entity');
     }
 
-    public function index(Request $request): mixed
+    public function index(Request $request): JsonResponse
     {
-        $perPage = min($request->integer('per_page', 15), 100);
+        $entities = $this->service->paginate($request->only([
+            'search',
+            'type',
+            'active_only',
+            'page',
+            'per_page',
+            'sort',
+            'direction',
+        ]));
+        $serializedItems = EntityResource::collection($entities->items())->resolve($request);
 
-        return EntityModel::query()
-            ->when(
-                $request->boolean('clients') && ! $request->boolean('suppliers'),
-                static fn ($query) => $query->clients()
-            )
-            ->when(
-                $request->boolean('suppliers') && ! $request->boolean('clients'),
-                static fn ($query) => $query->suppliers()
-            )
-            ->when(
-                $request->boolean('active_only'),
-                static fn ($query) => $query->active()
-            )
-            ->latest()
-            ->paginate($perPage);
+        return response()->json([
+            'message' => 'Entities retrieved successfully',
+            'data' => $serializedItems,
+            'meta' => [
+                'current_page' => $entities->currentPage(),
+                'last_page' => $entities->lastPage(),
+                'per_page' => $entities->perPage(),
+                'total' => $entities->total(),
+            ],
+        ], 200);
     }
 
     public function store(StoreEntityRequest $request): JsonResponse
@@ -50,17 +54,21 @@ class EntityControllerAPI extends Controller
             ], 422);
         }
 
+        $entity->load('country:id,name');
+
         return response()->json([
             'message' => 'Entity created successfully',
-            'data' => $entity,
+            'data' => new EntityResource($entity),
         ], 201);
     }
 
     public function show(EntityModel $entity): JsonResponse
     {
+        $entity->load('country:id,name');
+
         return response()->json([
             'message' => 'Entity retrieved successfully',
-            'data' => $entity,
+            'data' => new EntityResource($entity),
         ], 200);
     }
 
@@ -74,26 +82,22 @@ class EntityControllerAPI extends Controller
             ], 422);
         }
 
+        $entity->load('country:id,name');
+
         return response()->json([
             'message' => 'Entity updated successfully',
-            'data' => $entity,
+            'data' => new EntityResource($entity),
         ], 200);
     }
 
     public function destroy(EntityModel $entity): JsonResponse
     {
-        if (! $entity->is_active) {
-            return response()->json([
-                'message' => 'Entity already inactive',
-                'data' => $entity,
-            ], 200);
-        }
-
-        $entity->update(['is_active' => false]);
+        $updated = $this->service->inactivate($entity);
+        $updated->load('country:id,name');
 
         return response()->json([
             'message' => 'Entity inactivated successfully',
-            'data' => $entity->refresh(),
+            'data' => new EntityResource($updated),
         ], 200);
     }
 }

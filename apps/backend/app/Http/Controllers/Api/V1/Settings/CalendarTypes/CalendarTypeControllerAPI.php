@@ -28,12 +28,11 @@ class CalendarTypeControllerAPI extends Controller
             'direction',
             'active_only',
         ]));
-        $resourceCollection = CalendarTypeResource::collection($calendarTypes);
-        $serialized = $resourceCollection->resolve($request);
+        $serializedItems = CalendarTypeResource::collection($calendarTypes->items())->resolve($request);
 
         return response()->json([
             'message' => 'Calendar types retrieved successfully',
-            'data' => $serialized['data'] ?? [],
+            'data' => $serializedItems,
             'meta' => [
                 'current_page' => $calendarTypes->currentPage(),
                 'last_page' => $calendarTypes->lastPage(),

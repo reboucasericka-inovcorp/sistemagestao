@@ -28,12 +28,11 @@ class CalendarActionControllerAPI extends Controller
             'direction',
             'active_only',
         ]));
-        $resourceCollection = CalendarActionResource::collection($calendarActions);
-        $serialized = $resourceCollection->resolve($request);
+        $serializedItems = CalendarActionResource::collection($calendarActions->items())->resolve($request);
 
         return response()->json([
             'message' => 'Calendar actions retrieved successfully',
-            'data' => $serialized['data'] ?? [],
+            'data' => $serializedItems,
             'meta' => [
                 'current_page' => $calendarActions->currentPage(),
                 'last_page' => $calendarActions->lastPage(),

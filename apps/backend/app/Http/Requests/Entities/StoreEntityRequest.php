@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Entities;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreEntityRequest extends FormRequest
 {
@@ -11,30 +12,23 @@ class StoreEntityRequest extends FormRequest
         return true;
     }
 
-    public function prepareForValidation(): void
-    {
-        $this->merge([
-            'is_client' => $this->has('is_client')
-                ? filter_var($this->input('is_client'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
-                : null,
-            'is_supplier' => $this->has('is_supplier')
-                ? filter_var($this->input('is_supplier'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
-                : null,
-        ]);
-    }
-
     public function rules(): array
     {
         return [
-            'number' => ['required', 'string', 'max:50', 'unique:entities,number'],
-            'nif' => ['required', 'string', 'max:20', 'unique:entities,nif'],
+            'type' => ['required', Rule::in(['client', 'supplier', 'both'])],
+            'nif' => ['required', 'string', 'max:20', Rule::unique('entities', 'nif')],
             'name' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'regex:/^\d{4}-\d{3}$/'],
-            'email' => ['nullable', 'email'],
-            'is_client' => ['required', 'boolean'],
-            'is_supplier' => ['required', 'boolean'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'mobile' => ['nullable', 'string', 'max:20'],
+            'website' => ['nullable', 'url', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
             'gdpr_consent' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
+            'notes' => ['nullable', 'string'],
         ];
     }
 }

@@ -28,12 +28,11 @@ class ArticleControllerAPI extends Controller
             'direction',
             'active_only',
         ]));
-        $resourceCollection = ArticleResource::collection($articles);
-        $serialized = $resourceCollection->resolve($request);
+        $serializedItems = ArticleResource::collection($articles->items())->resolve($request);
 
         return response()->json([
             'message' => 'Articles retrieved successfully',
-            'data' => $serialized['data'] ?? [],
+            'data' => $serializedItems,
             'meta' => [
                 'current_page' => $articles->currentPage(),
                 'last_page' => $articles->lastPage(),
