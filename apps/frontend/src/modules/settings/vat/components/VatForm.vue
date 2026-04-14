@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -13,8 +13,20 @@ import type { Vat } from '@/modules/settings/vat/types/vat'
 
 const route = useRoute()
 const router = useRouter()
-const isNew = computed(() => route.name === 'vat.new')
-const vatId = computed(() => Number(route.params.id))
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+    recordId?: number | null
+    open?: boolean
+  }>(),
+  { mode: undefined, recordId: null, open: undefined },
+)
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
+const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'vat.new'))
+const vatId = computed(() => Number(props.recordId ?? route.params.id))
 
 const pageLoading = ref(false)
 const submitLoading = ref(false)
@@ -23,7 +35,7 @@ const feedbackKind = ref<'success' | 'error' | ''>('')
 
 const vatSchema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório'),
-  percentage: z.coerce.number().min(0, 'Percentagem inválida').max(100, 'Máximo 100%'),
+  rate: z.coerce.number().min(0, 'Taxa inválida').max(100, 'Máximo 100%'),
   is_active: z.boolean(),
 })
 
@@ -31,20 +43,30 @@ type VatFormData = z.infer<typeof vatSchema>
 
 const defaultValues: VatFormData = {
   name: '',
-  percentage: 0,
+  rate: 0,
   is_active: true,
 }
 
-const { resetForm, setFieldValue } = useForm<VatFormData>({
+const { resetForm, setErrors, values } = useForm<VatFormData>({
   validationSchema: toTypedSchema(vatSchema),
   initialValues: defaultValues,
 })
+
+function normalizeRate(rawValue: unknown): number {
+  const sanitized = String(rawValue ?? '')
+    .replace('%', '')
+    .replace(',', '.')
+    .trim()
+
+  const numeric = Number(sanitized)
+  return Number.isFinite(numeric) ? numeric : 0
+}
 
 function applyBackendVat(payload: Vat): void {
   resetForm({
     values: {
       name: payload.name,
-      percentage: payload.percentage,
+      rate: payload.rate,
       is_active: payload.is_active,
     },
   })
@@ -59,11 +81,31 @@ async function loadVatIfEditing(): Promise<void> {
 }
 
 function toPayload(values: VatFormData): UpsertVatPayload {
+  const normalizedRate = normalizeRate(values.rate)
+
   return {
     name: values.name,
-    percentage: Number(values.percentage),
-    is_active: values.is_active,
+    rate: normalizedRate,
+    is_active: values.is_active ?? true,
   }
+}
+
+function applyLaravelValidationErrors(error: unknown): void {
+  if (typeof error !== 'object' || !error || !('response' in error)) {
+    return
+  }
+
+  const errors = (error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }).response?.data
+    ?.errors
+  if (!errors) {
+    return
+  }
+
+  setErrors({
+    name: errors.name?.[0],
+    rate: errors.rate?.[0],
+    is_active: errors.is_active?.[0],
+  })
 }
 
 async function onSubmit(submittedValues: VatFormData): Promise<void> {
@@ -71,16 +113,30 @@ async function onSubmit(submittedValues: VatFormData): Promise<void> {
   feedbackMessage.value = ''
   submitLoading.value = true
   try {
-    const payload = toPayload(submittedValues)
+    setErrors({})
+    const payload = toPayload({
+      ...submittedValues,
+      rate: normalizeRate(submittedValues.rate ?? values.rate),
+    })
+    console.log('vat payload', payload)
     if (isNew.value) {
       await createVat(payload)
-      await router.push('/settings/vat')
+      if (props.mode === 'create') {
+        emit('success')
+      } else {
+        await router.push('/settings/vat')
+      }
       return
     }
     await updateVat(vatId.value, payload)
+    if (props.mode === 'edit') {
+      emit('success')
+      return
+    }
     feedbackKind.value = 'success'
     feedbackMessage.value = 'IVA atualizado com sucesso.'
   } catch (error: unknown) {
+    applyLaravelValidationErrors(error)
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -103,6 +159,20 @@ onMounted(async () => {
     pageLoading.value = false
   }
 })
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (!isOpen) return
+    feedbackKind.value = ''
+    feedbackMessage.value = ''
+    if (isNew.value) {
+      resetForm({ values: { ...defaultValues } })
+      return
+    }
+    await loadVatIfEditing()
+  },
+)
 </script>
 
 <template>
@@ -124,9 +194,9 @@ onMounted(async () => {
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ value }" name="percentage">
+      <FormField v-slot="{ value, handleChange }" name="rate">
         <FormItem>
-          <FormLabel>Percentagem (%)</FormLabel>
+          <FormLabel>Taxa (%)</FormLabel>
           <FormControl>
             <Input
               :model-value="String(value ?? '')"
@@ -135,7 +205,7 @@ onMounted(async () => {
               min="0"
               max="100"
               :disabled="pageLoading || submitLoading"
-              @update:model-value="setFieldValue('percentage', Number($event))"
+              @update:model-value="(rawValue) => handleChange(normalizeRate(rawValue))"
             />
           </FormControl>
           <FormMessage />
@@ -157,7 +227,8 @@ onMounted(async () => {
       </FormField>
 
       <div class="footer">
-        <RouterLink to="/settings/vat">Cancelar</RouterLink>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <RouterLink v-else to="/settings/vat">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>

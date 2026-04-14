@@ -43,7 +43,7 @@ const defaultValues: CompanyFormData = {
   tax_number: '',
 }
 
-const { resetForm, setFieldValue } = useForm<CompanyFormData>({
+const { resetForm, setFieldValue, setErrors } = useForm<CompanyFormData>({
   validationSchema: toTypedSchema(companySchema),
   initialValues: defaultValues,
 })
@@ -91,6 +91,26 @@ function toPayload(values: CompanyFormData): UpsertCompanyPayload {
   }
 }
 
+function applyLaravelValidationErrors(error: unknown): void {
+  if (typeof error !== 'object' || !error || !('response' in error)) {
+    return
+  }
+
+  const errors = (error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }).response?.data
+    ?.errors
+  if (!errors) {
+    return
+  }
+
+  setErrors({
+    name: errors.name?.[0],
+    address: errors.address?.[0],
+    postal_code: errors.postal_code?.[0],
+    city: errors.city?.[0],
+    tax_number: errors.tax_number?.[0],
+  })
+}
+
 async function loadCompany(): Promise<void> {
   pageLoading.value = true
   try {
@@ -114,6 +134,7 @@ async function onSubmit(values: CompanyFormData): Promise<void> {
   feedbackMessage.value = ''
   submitLoading.value = true
   try {
+    setErrors({})
     const payload = toPayload(values)
     const saved = hasExistingCompany.value ? await updateCompany(payload) : await createCompany(payload)
     hasExistingCompany.value = true
@@ -122,6 +143,7 @@ async function onSubmit(values: CompanyFormData): Promise<void> {
     feedbackKind.value = 'success'
     feedbackMessage.value = 'Dados da empresa guardados com sucesso.'
   } catch (error: unknown) {
+    applyLaravelValidationErrors(error)
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message

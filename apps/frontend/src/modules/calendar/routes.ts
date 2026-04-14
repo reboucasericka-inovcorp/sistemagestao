@@ -1,7 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 
-import CalendarHome from '@/modules/calendar/pages/CalendarHome.vue'
+import CalendarPage from '@/modules/calendar/pages/CalendarPage.vue'
 
 export const calendarRoutes: RouteRecordRaw[] = [
-  { path: 'calendar', name: 'calendar.home', component: CalendarHome },
+  { path: 'calendar', name: 'calendar.home', component: CalendarPage },
 ]

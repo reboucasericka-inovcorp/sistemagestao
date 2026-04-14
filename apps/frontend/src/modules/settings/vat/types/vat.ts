@@ -1,6 +1,6 @@
 export type Vat = {
   id: number
   name: string
-  percentage: number
+  rate: number
   is_active: boolean
 }

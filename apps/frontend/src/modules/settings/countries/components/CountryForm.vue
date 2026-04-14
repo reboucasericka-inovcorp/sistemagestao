@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -18,8 +18,20 @@ import type { Country } from '@/modules/settings/countries/types/country'
 
 const route = useRoute()
 const router = useRouter()
-const isNew = computed(() => route.name === 'countries.new')
-const countryId = computed(() => Number(route.params.id))
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+    recordId?: number | null
+    open?: boolean
+  }>(),
+  { mode: undefined, recordId: null, open: undefined },
+)
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
+const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'countries.new'))
+const countryId = computed(() => Number(props.recordId ?? route.params.id))
 
 const pageLoading = ref(false)
 const submitLoading = ref(false)
@@ -40,7 +52,7 @@ const defaultValues: CountryFormData = {
   is_active: true,
 }
 
-const { resetForm } = useForm<CountryFormData>({
+const { resetForm, setErrors } = useForm<CountryFormData>({
   validationSchema: toTypedSchema(countrySchema),
   initialValues: defaultValues,
 })
@@ -71,6 +83,23 @@ function toPayload(values: CountryFormData): UpsertCountryPayload {
   }
 }
 
+function applyLaravelValidationErrors(error: unknown): void {
+  if (typeof error !== 'object' || !error || !('response' in error)) {
+    return
+  }
+  const errors = (
+    error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }
+  ).response?.data?.errors
+  if (!errors) {
+    return
+  }
+  setErrors({
+    name: errors.name?.[0],
+    code: errors.code?.[0],
+    is_active: errors.is_active?.[0],
+  })
+}
+
 async function onSubmit(submittedValues: CountryFormData): Promise<void> {
   feedbackKind.value = ''
   feedbackMessage.value = ''
@@ -79,13 +108,22 @@ async function onSubmit(submittedValues: CountryFormData): Promise<void> {
     const payload = toPayload(submittedValues)
     if (isNew.value) {
       await createCountry(payload)
-      await router.push('/settings/countries')
+      if (props.mode === 'create') {
+        emit('success')
+      } else {
+        await router.push('/settings/countries')
+      }
       return
     }
     await updateCountry(countryId.value, payload)
+    if (props.mode === 'edit') {
+      emit('success')
+      return
+    }
     feedbackKind.value = 'success'
     feedbackMessage.value = 'País atualizado com sucesso.'
   } catch (error: unknown) {
+    applyLaravelValidationErrors(error)
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -108,6 +146,20 @@ onMounted(async () => {
     pageLoading.value = false
   }
 })
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (!isOpen) return
+    feedbackKind.value = ''
+    feedbackMessage.value = ''
+    if (isNew.value) {
+      resetForm({ values: { ...defaultValues } })
+      return
+    }
+    await loadCountryIfEditing()
+  },
+)
 </script>
 
 <template>
@@ -154,7 +206,8 @@ onMounted(async () => {
       </FormField>
 
       <div class="footer">
-        <RouterLink to="/settings/countries">Cancelar</RouterLink>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <RouterLink v-else to="/settings/countries">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>

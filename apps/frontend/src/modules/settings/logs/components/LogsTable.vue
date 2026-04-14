@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { listLogsResult, type LogsListMeta } from '@/modules/settings/logs/services/logService'
-import type { Log } from '@/modules/settings/logs/types/log'
+import type { Log, LogAction } from '@/modules/settings/logs/types/log'
 
 const logs = ref<Log[]>([])
 const loading = ref(false)
@@ -31,7 +31,9 @@ const debounceId = ref<number | null>(null)
 const filters = reactive({
   user: '',
   menu: '',
-  action: '',
+  action: '' as '' | LogAction,
+  dateFrom: '',
+  dateTo: '',
   perPage: 15,
 })
 
@@ -51,9 +53,7 @@ const userOptions = computed(() =>
 const menuOptions = computed(() =>
   Array.from(new Set(logs.value.map((item) => item.menu).filter((value) => value && value !== '-'))),
 )
-const actionOptions = computed(() =>
-  Array.from(new Set(logs.value.map((item) => item.action).filter((value) => value && value !== '-'))),
-)
+const actionOptions: LogAction[] = ['created', 'updated', 'deleted']
 
 function queueSearch(value: string): void {
   searchText.value = value
@@ -75,6 +75,8 @@ async function fetchLogs(): Promise<void> {
       user: filters.user || undefined,
       menu: filters.menu || undefined,
       action: filters.action || undefined,
+      date_from: filters.dateFrom || undefined,
+      date_to: filters.dateTo || undefined,
       page: pagination.current_page,
       per_page: filters.perPage,
     })
@@ -99,7 +101,16 @@ function goToPage(page: number): void {
 }
 
 watch(
-  () => [pagination.current_page, filters.perPage, filters.user, filters.menu, filters.action, searchDebounced.value],
+  () => [
+    pagination.current_page,
+    filters.perPage,
+    filters.user,
+    filters.menu,
+    filters.action,
+    filters.dateFrom,
+    filters.dateTo,
+    searchDebounced.value,
+  ],
   () => {
     void fetchLogs()
   },
@@ -141,6 +152,26 @@ onBeforeUnmount(() => {
           <SelectItem v-for="user in userOptions" :key="user" :value="user">{{ user }}</SelectItem>
         </SelectContent>
       </Select>
+
+      <Input
+        :model-value="filters.dateFrom"
+        type="date"
+        class="w-[170px]"
+        @update:model-value="
+          filters.dateFrom = String($event);
+          pagination.current_page = 1
+        "
+      />
+
+      <Input
+        :model-value="filters.dateTo"
+        type="date"
+        class="w-[170px]"
+        @update:model-value="
+          filters.dateTo = String($event);
+          pagination.current_page = 1
+        "
+      />
 
       <Select
         :model-value="filters.menu"

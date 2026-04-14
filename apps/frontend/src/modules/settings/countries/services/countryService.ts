@@ -35,11 +35,11 @@ export async function listCountriesResult(query?: ListCountriesQuery): Promise<L
       ...(query?.per_page ? { per_page: query.per_page } : {}),
     },
   })
-  const normalized = normalizeListResponse(response) as {
+  const normalized = normalizeListResponse(response.data) as {
     data: Country[]
     meta?: Partial<CountriesListMeta> | null
   }
-  const data = Array.isArray(normalized.data) ? normalized.data : []
+  const data = normalized.data
   return {
     data,
     meta: {

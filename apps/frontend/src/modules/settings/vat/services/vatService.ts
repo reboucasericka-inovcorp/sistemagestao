@@ -23,7 +23,7 @@ export type ListVatResult = {
 
 export type UpsertVatPayload = {
   name: string
-  percentage: number
+  rate: number
   is_active: boolean
 }
 
@@ -35,11 +35,11 @@ export async function listVatResult(query?: ListVatQuery): Promise<ListVatResult
       ...(query?.per_page ? { per_page: query.per_page } : {}),
     },
   })
-  const normalized = normalizeListResponse(response) as {
+  const normalized = normalizeListResponse(response.data) as {
     data: Vat[]
     meta?: Partial<VatListMeta> | null
   }
-  const data = Array.isArray(normalized.data) ? normalized.data : []
+  const data = normalized.data
   return {
     data,
     meta: {

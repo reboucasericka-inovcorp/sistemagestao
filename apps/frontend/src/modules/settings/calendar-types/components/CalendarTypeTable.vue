@@ -27,6 +27,16 @@ import {
 import type { CalendarType } from '@/modules/settings/calendar-types/types/calendarType'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', id: number): void
+}>()
+const props = withDefaults(
+  defineProps<{
+    useEditModal?: boolean
+  }>(),
+  { useEditModal: false },
+)
 
 const calendarTypes = ref<CalendarType[]>([])
 const loading = ref(false)
@@ -49,6 +59,11 @@ const pagination = reactive<CalendarTypesListMeta>({
 
 const hasPreviousPage = computed(() => pagination.current_page > 1)
 const hasNextPage = computed(() => pagination.current_page < pagination.last_page)
+const hexColorPattern = /^#[0-9A-Fa-f]{6}$/
+
+function isValidHexColor(color?: string | null): boolean {
+  return Boolean(color && hexColorPattern.test(color))
+}
 
 function queueSearch(value: string): void {
   searchText.value = value
@@ -84,6 +99,10 @@ async function fetchCalendarTypes(): Promise<void> {
 }
 
 function goToEdit(calendarTypeId: number): void {
+  if (props.useEditModal) {
+    emit('edit', calendarTypeId)
+    return
+  }
   void router.push({ name: 'calendar-types.edit', params: { id: calendarTypeId } })
 }
 
@@ -151,7 +170,7 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <Button variant="outline" @click="router.push('/settings/calendar-types/new')">Criar tipo</Button>
+      <Button variant="outline" @click="emit('create')">Criar tipo</Button>
     </div>
 
     <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -173,7 +192,15 @@ onBeforeUnmount(() => {
           <TableEmpty v-else-if="!calendarTypes.length" :colspan="4">Nenhum registo encontrado.</TableEmpty>
           <TableRow v-for="calendarType in calendarTypes" v-else :key="calendarType.id">
             <TableCell>{{ calendarType.name }}</TableCell>
-            <TableCell>{{ calendarType.color || '-' }}</TableCell>
+            <TableCell>
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-block h-4 w-4 rounded border"
+                  :style="{ backgroundColor: isValidHexColor(calendarType.color) ? String(calendarType.color) : 'transparent' }"
+                />
+                <span>{{ calendarType.color || '-' }}</span>
+              </div>
+            </TableCell>
             <TableCell>{{ calendarType.is_active ? 'Ativo' : 'Inativo' }}</TableCell>
             <TableCell class="text-right">
               <div class="flex justify-end gap-2">

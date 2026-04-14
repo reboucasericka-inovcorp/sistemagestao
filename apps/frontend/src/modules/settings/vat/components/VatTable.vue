@@ -23,6 +23,16 @@ import { listVatResult, toggleVatStatus, type VatListMeta } from '@/modules/sett
 import type { Vat } from '@/modules/settings/vat/types/vat'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', id: number): void
+}>()
+const props = withDefaults(
+  defineProps<{
+    useEditModal?: boolean
+  }>(),
+  { useEditModal: false },
+)
 
 const vats = ref<Vat[]>([])
 const loading = ref(false)
@@ -80,6 +90,10 @@ async function fetchVat(): Promise<void> {
 }
 
 function goToEdit(vatId: number): void {
+  if (props.useEditModal) {
+    emit('edit', vatId)
+    return
+  }
   void router.push({ name: 'vat.edit', params: { id: vatId } })
 }
 
@@ -147,7 +161,7 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <Button variant="outline" @click="router.push('/settings/vat/new')">Criar IVA</Button>
+      <Button variant="outline" @click="emit('create')">Criar IVA</Button>
     </div>
 
     <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -159,7 +173,7 @@ onBeforeUnmount(() => {
         <TableHeader>
           <TableRow>
             <TableHead>Nome</TableHead>
-            <TableHead>Percentagem</TableHead>
+            <TableHead>Taxa</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead class="text-right">Ações</TableHead>
           </TableRow>
@@ -169,7 +183,7 @@ onBeforeUnmount(() => {
           <TableEmpty v-else-if="!vats.length" :colspan="4">Nenhum registo encontrado.</TableEmpty>
           <TableRow v-for="vat in vats" v-else :key="vat.id">
             <TableCell>{{ vat.name }}</TableCell>
-            <TableCell>{{ vat.percentage }}%</TableCell>
+            <TableCell>{{ vat.rate }}%</TableCell>
             <TableCell>{{ vat.is_active ? 'Ativo' : 'Inativo' }}</TableCell>
             <TableCell class="text-right">
               <div class="flex justify-end gap-2">

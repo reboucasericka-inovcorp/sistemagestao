@@ -42,11 +42,11 @@ export async function listCalendarActionsResult(
       ...(query?.per_page ? { per_page: query.per_page } : {}),
     },
   })
-  const normalized = normalizeListResponse(response) as {
+  const normalized = normalizeListResponse(response.data) as {
     data: CalendarAction[]
     meta?: Partial<CalendarActionsListMeta> | null
   }
-  const data = Array.isArray(normalized.data) ? normalized.data : []
+  const data = normalized.data
   return {
     data,
     meta: {
@@ -94,8 +94,8 @@ export async function toggleCalendarActionStatus(
 export async function listCalendarTypeOptions(): Promise<CalendarTypeOption[]> {
   try {
     const response = await api.get(API_ROUTES.calendarTypes, { params: { active_only: 1, per_page: 100 } })
-    const normalized = normalizeListResponse(response) as { data: CalendarTypeOption[] }
-    return Array.isArray(normalized.data) ? normalized.data : []
+    const normalized = normalizeListResponse(response.data) as { data: CalendarTypeOption[] }
+    return normalized.data
   } catch {
     // calendar_type_id relation is optional.
     return []

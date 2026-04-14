@@ -4,13 +4,12 @@ export type Article = {
   reference: string
   name: string
   description?: string | null
-  price: number
+  price: string
   vat_id?: number | null
-  vat_percent?: number | null
   vat?: {
     id: number
     name: string
-    percentage: number
+    rate: string
   } | null
   photo_url?: string | null
   notes?: string | null

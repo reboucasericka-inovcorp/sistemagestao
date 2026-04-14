@@ -1,15 +1,32 @@
 <script setup lang="ts">
+import FormModal from '@/components/shared/FormModal.vue'
+import { useCrudModal } from '@/composables/useCrudModal'
+import CalendarActionForm from '@/modules/settings/calendar-actions/components/CalendarActionForm.vue'
 import CalendarActionTable from '@/modules/settings/calendar-actions/components/CalendarActionTable.vue'
 import DocSection from '@/shared/components/DocSection.vue'
+
+const { openCreate, openEdit, editingId, tableKey, openCreateModal, closeCreateModal, openEditModal, closeEditModal, onSuccess } =
+  useCrudModal()
 </script>
 
 <template>
   <div>
     <h1>Ações de calendário</h1>
-    <DocSection title="Âmbito do módulo">
-      <p>Gestão de ações usadas nos eventos do calendário.</p>
-    </DocSection>
-    <CalendarActionTable />
+
+    <CalendarActionTable :key="tableKey" :use-edit-modal="true" @create="openCreateModal" @edit="openEditModal" />
+    <FormModal v-model:open="openCreate" title="Nova ação de calendário">
+      <CalendarActionForm mode="create" :open="openCreate" @cancel="closeCreateModal" @success="onSuccess" />
+    </FormModal>
+    <FormModal v-model:open="openEdit" title="Editar ação de calendário">
+      <CalendarActionForm
+        v-if="editingId"
+        mode="edit"
+        :open="openEdit"
+        :record-id="editingId"
+        @cancel="closeEditModal"
+        @success="onSuccess"
+      />
+    </FormModal>
   </div>
 </template>
 

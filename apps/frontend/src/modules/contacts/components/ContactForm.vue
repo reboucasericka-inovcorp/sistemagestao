@@ -29,7 +29,17 @@ import type { Contact } from '@/modules/contacts/types/contact'
 
 const route = useRoute()
 const router = useRouter()
-const isNew = computed(() => route.name === 'contacts.new')
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+  }>(),
+  { mode: undefined },
+)
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
+const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'contacts.new'))
 const contactId = computed(() => Number(route.params.id))
 
 const pageLoading = ref(false)
@@ -158,7 +168,11 @@ const onSubmit = handleSubmit(async (submittedValues) => {
       await createContact(payload)
       feedbackKind.value = 'success'
       feedbackMessage.value = 'Contacto criado com sucesso.'
-      await router.push('/contacts')
+      if (props.mode === 'create') {
+        emit('success')
+      } else {
+        await router.push('/contacts')
+      }
       return
     }
     await updateContact(contactId.value, payload)
@@ -356,7 +370,8 @@ onMounted(async () => {
       </div>
 
       <div class="footer">
-        <RouterLink to="/contacts">Cancelar</RouterLink>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <RouterLink v-else to="/contacts">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>

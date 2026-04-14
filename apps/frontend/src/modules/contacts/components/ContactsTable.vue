@@ -29,6 +29,9 @@ import {
 import type { Contact } from '@/modules/contacts/types/contact'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'create'): void
+}>()
 
 const contacts = ref<Contact[]>([])
 const entities = ref<Array<{ id: number; name: string }>>([])
@@ -227,7 +230,7 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <Button variant="outline" @click="router.push('/contacts/new')">Criar contacto</Button>
+      <Button variant="outline" @click="emit('create')">Criar contacto</Button>
     </div>
 
     <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -18,8 +18,20 @@ import type { CalendarType } from '@/modules/settings/calendar-types/types/calen
 
 const route = useRoute()
 const router = useRouter()
-const isNew = computed(() => route.name === 'calendar-types.new')
-const calendarTypeId = computed(() => Number(route.params.id))
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+    recordId?: number | null
+    open?: boolean
+  }>(),
+  { mode: undefined, recordId: null, open: undefined },
+)
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
+const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'calendar-types.new'))
+const calendarTypeId = computed(() => Number(props.recordId ?? route.params.id))
 
 const pageLoading = ref(false)
 const submitLoading = ref(false)
@@ -27,6 +39,7 @@ const feedbackMessage = ref('')
 const feedbackKind = ref<'success' | 'error' | ''>('')
 
 const hexPattern = /^#[0-9A-Fa-f]{6}$/
+const defaultPreviewColor = '#000000'
 
 const calendarTypeSchema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório'),
@@ -46,7 +59,7 @@ const defaultValues: CalendarTypeFormData = {
   is_active: true,
 }
 
-const { resetForm } = useForm<CalendarTypeFormData>({
+const { resetForm, setErrors } = useForm<CalendarTypeFormData>({
   validationSchema: toTypedSchema(calendarTypeSchema),
   initialValues: defaultValues,
 })
@@ -77,6 +90,23 @@ function toPayload(values: CalendarTypeFormData): UpsertCalendarTypePayload {
   }
 }
 
+function applyLaravelValidationErrors(error: unknown): void {
+  if (typeof error !== 'object' || !error || !('response' in error)) {
+    return
+  }
+  const errors = (
+    error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }
+  ).response?.data?.errors
+  if (!errors) {
+    return
+  }
+  setErrors({
+    name: errors.name?.[0],
+    color: errors.color?.[0],
+    is_active: errors.is_active?.[0],
+  })
+}
+
 async function onSubmit(submittedValues: CalendarTypeFormData): Promise<void> {
   feedbackKind.value = ''
   feedbackMessage.value = ''
@@ -85,13 +115,22 @@ async function onSubmit(submittedValues: CalendarTypeFormData): Promise<void> {
     const payload = toPayload(submittedValues)
     if (isNew.value) {
       await createCalendarType(payload)
-      await router.push('/settings/calendar-types')
+      if (props.mode === 'create') {
+        emit('success')
+      } else {
+        await router.push('/settings/calendar-types')
+      }
       return
     }
     await updateCalendarType(calendarTypeId.value, payload)
+    if (props.mode === 'edit') {
+      emit('success')
+      return
+    }
     feedbackKind.value = 'success'
     feedbackMessage.value = 'Tipo de calendário atualizado com sucesso.'
   } catch (error: unknown) {
+    applyLaravelValidationErrors(error)
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -114,6 +153,20 @@ onMounted(async () => {
     pageLoading.value = false
   }
 })
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (!isOpen) return
+    feedbackKind.value = ''
+    feedbackMessage.value = ''
+    if (isNew.value) {
+      resetForm({ values: { ...defaultValues } })
+      return
+    }
+    await loadCalendarTypeIfEditing()
+  },
+)
 </script>
 
 <template>
@@ -138,9 +191,28 @@ onMounted(async () => {
       <FormField v-slot="{ componentField }" name="color">
         <FormItem>
           <FormLabel>Cor (hex)</FormLabel>
-          <FormControl>
-            <Input v-bind="componentField" placeholder="#FF0000" :disabled="pageLoading || submitLoading" />
-          </FormControl>
+          <div class="color-row">
+            <FormControl>
+              <Input
+                v-bind="componentField"
+                placeholder="#FF0000"
+                :disabled="pageLoading || submitLoading"
+                class="flex-1"
+              />
+            </FormControl>
+            <Input
+              type="color"
+              :model-value="hexPattern.test(componentField.modelValue ?? '') ? String(componentField.modelValue) : defaultPreviewColor"
+              :disabled="pageLoading || submitLoading"
+              class="color-picker"
+              @update:model-value="(value) => componentField.onChange(String(value))"
+            />
+            <span
+              class="color-preview"
+              :style="{ backgroundColor: hexPattern.test(componentField.modelValue ?? '') ? String(componentField.modelValue) : 'transparent' }"
+              :title="hexPattern.test(componentField.modelValue ?? '') ? String(componentField.modelValue) : 'Cor inválida'"
+            />
+          </div>
           <FormMessage />
         </FormItem>
       </FormField>
@@ -160,7 +232,8 @@ onMounted(async () => {
       </FormField>
 
       <div class="footer">
-        <RouterLink to="/settings/calendar-types">Cancelar</RouterLink>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <RouterLink v-else to="/settings/calendar-types">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>
@@ -208,5 +281,23 @@ h1 {
   gap: 1rem;
   align-items: center;
   margin-top: 0.5rem;
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.color-picker {
+  width: 3rem;
+  padding: 0.25rem;
+}
+
+.color-preview {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.25rem;
 }
 </style>

@@ -27,6 +27,9 @@ import {
 import type { ContactFunction } from '@/modules/settings/contact-functions/types/contactFunction'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'create'): void
+}>()
 
 const contactFunctions = ref<ContactFunction[]>([])
 const loading = ref(false)
@@ -151,7 +154,7 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <Button variant="outline" @click="router.push('/settings/contact-functions/new')">Criar função</Button>
+      <Button variant="outline" @click="emit('create')">Criar função</Button>
     </div>
 
     <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

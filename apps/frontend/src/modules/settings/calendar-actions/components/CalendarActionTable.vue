@@ -27,6 +27,16 @@ import {
 import type { CalendarAction } from '@/modules/settings/calendar-actions/types/calendarAction'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', id: number): void
+}>()
+const props = withDefaults(
+  defineProps<{
+    useEditModal?: boolean
+  }>(),
+  { useEditModal: false },
+)
 
 const calendarActions = ref<CalendarAction[]>([])
 const loading = ref(false)
@@ -84,6 +94,10 @@ async function fetchCalendarActions(): Promise<void> {
 }
 
 function goToEdit(calendarActionId: number): void {
+  if (props.useEditModal) {
+    emit('edit', calendarActionId)
+    return
+  }
   void router.push({ name: 'calendar-actions.edit', params: { id: calendarActionId } })
 }
 
@@ -151,7 +165,7 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <Button variant="outline" @click="router.push('/settings/calendar-actions/new')">Criar ação</Button>
+      <Button variant="outline" @click="emit('create')">Criar ação</Button>
     </div>
 
     <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

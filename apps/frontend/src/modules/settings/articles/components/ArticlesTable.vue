@@ -27,6 +27,16 @@ import {
 import type { Article } from '@/modules/settings/articles/types/article'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', id: number): void
+}>()
+const props = withDefaults(
+  defineProps<{
+    useEditModal?: boolean
+  }>(),
+  { useEditModal: false },
+)
 
 const articles = ref<Article[]>([])
 const loading = ref(false)
@@ -50,19 +60,17 @@ const pagination = reactive<ArticlesListMeta>({
 const hasPreviousPage = computed(() => pagination.current_page > 1)
 const hasNextPage = computed(() => pagination.current_page < pagination.last_page)
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: string): string {
+  const parsedValue = Number(value)
   return new Intl.NumberFormat('pt-PT', {
     style: 'currency',
     currency: 'EUR',
-  }).format(value)
+  }).format(Number.isNaN(parsedValue) ? 0 : parsedValue)
 }
 
 function getVatPercentage(article: Article): string {
-  if (article.vat?.percentage != null) {
-    return `${article.vat.percentage}%`
-  }
-  if (article.vat_percent != null) {
-    return `${article.vat_percent}%`
+  if (article.vat?.rate != null) {
+    return `${article.vat.rate}%`
   }
   return '-'
 }
@@ -101,6 +109,10 @@ async function fetchArticles(): Promise<void> {
 }
 
 function goToEdit(articleId: number): void {
+  if (props.useEditModal) {
+    emit('edit', articleId)
+    return
+  }
   void router.push({ name: 'articles.edit', params: { id: articleId } })
 }
 
@@ -168,7 +180,7 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <Button variant="outline" @click="router.push('/settings/articles/new')">Criar artigo</Button>
+      <Button variant="outline" @click="emit('create')">Criar artigo</Button>
     </div>
 
     <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

@@ -1,37 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import EntitiesTable from '@/modules/entities/components/EntitiesTable.vue'
-import EntityTypeHint from '@/modules/entities/components/EntityTypeHint.vue'
-
-const route = useRoute()
-
-const listQuery = computed(() => ({
-  clients: route.query.clients === '1',
-  suppliers: route.query.suppliers === '1',
-}))
-
-const title = computed(() => {
-  if (listQuery.value.clients) {
-    return 'Clientes'
-  }
-  if (listQuery.value.suppliers) {
-    return 'Fornecedores'
-  }
-  return 'Entidades'
-})
 </script>
 
 <template>
   <div>
-    <h1>{{ title }}</h1>
-    <EntityTypeHint />
+    <h1>Entidades</h1>
     <p class="actions">
       <RouterLink to="/entities/new">Nova entidade</RouterLink>
       ·
       <RouterLink to="/contacts">Contactos</RouterLink>
     </p>
-    <EntitiesTable />
+    <EntitiesTable fixed-type="all" create-path="/entities/new" />
   </div>
 </template>
 

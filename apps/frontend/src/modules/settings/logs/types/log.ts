@@ -8,3 +8,5 @@ export type Log = {
   device: string | null
   ip_address: string | null
 }
+
+export type LogAction = 'created' | 'updated' | 'deleted'

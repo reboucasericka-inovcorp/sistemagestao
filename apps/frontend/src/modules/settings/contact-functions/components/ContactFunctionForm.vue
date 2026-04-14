@@ -18,7 +18,17 @@ import type { ContactFunction } from '@/modules/settings/contact-functions/types
 
 const route = useRoute()
 const router = useRouter()
-const isNew = computed(() => route.name === 'contact-functions.new')
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+  }>(),
+  { mode: undefined },
+)
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
+const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'contact-functions.new'))
 const contactFunctionId = computed(() => Number(route.params.id))
 
 const pageLoading = ref(false)
@@ -75,7 +85,11 @@ async function onSubmit(submittedValues: ContactFunctionFormData): Promise<void>
     const payload = toPayload(submittedValues)
     if (isNew.value) {
       await createContactFunction(payload)
-      await router.push('/settings/contact-functions')
+      if (props.mode === 'create') {
+        emit('success')
+      } else {
+        await router.push('/settings/contact-functions')
+      }
       return
     }
     await updateContactFunction(contactFunctionId.value, payload)
@@ -140,7 +154,8 @@ onMounted(async () => {
       </FormField>
 
       <div class="footer">
-        <RouterLink to="/settings/contact-functions">Cancelar</RouterLink>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <RouterLink v-else to="/settings/contact-functions">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>

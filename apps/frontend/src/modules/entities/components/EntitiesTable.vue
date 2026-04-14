@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -28,7 +28,25 @@ import type { Entity } from '@/modules/entities/types/entity'
 
 type TypeFilter = 'all' | 'client' | 'supplier'
 
-const route = useRoute()
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', id: number): void
+}>()
+
+const props = withDefaults(
+  defineProps<{
+    fixedType?: TypeFilter
+    createPath?: string
+    editRouteName?: 'entities.edit' | 'clients.edit' | 'suppliers.edit'
+    useEditModal?: boolean
+  }>(),
+  {
+    fixedType: 'all',
+    createPath: '/entities/new',
+    editRouteName: 'entities.edit',
+    useEditModal: false,
+  },
+)
 const router = useRouter()
 
 const entities = ref<Entity[]>([])
@@ -53,19 +71,8 @@ const pagination = reactive<EntitiesListMeta>({
 const hasPreviousPage = computed(() => pagination.current_page > 1)
 const hasNextPage = computed(() => pagination.current_page < pagination.last_page)
 
-const isClientRoute = computed(() => route.query.clients === '1')
-const isSupplierRoute = computed(() => route.query.suppliers === '1')
-
-function setTypeFilterFromRoute(): void {
-  if (isClientRoute.value && !isSupplierRoute.value) {
-    filters.type = 'client'
-    return
-  }
-  if (isSupplierRoute.value && !isClientRoute.value) {
-    filters.type = 'supplier'
-    return
-  }
-  filters.type = 'all'
+function setTypeFilterFromProps(): void {
+  filters.type = props.fixedType
 }
 
 async function fetchEntities(): Promise<void> {
@@ -73,8 +80,7 @@ async function fetchEntities(): Promise<void> {
   errorMessage.value = ''
   try {
     const result = await listEntitiesResult({
-      clients: filters.type === 'client',
-      suppliers: filters.type === 'supplier',
+      type: filters.type === 'all' ? undefined : filters.type,
       page: pagination.current_page,
       per_page: pagination.per_page,
       search: searchDebounced.value || undefined,
@@ -105,7 +111,11 @@ function queueSearch(value: string): void {
 }
 
 function goToEdit(entityId: number): void {
-  void router.push({ name: 'entities.edit', params: { id: entityId } })
+  if (props.useEditModal) {
+    emit('edit', entityId)
+    return
+  }
+  void router.push({ name: props.editRouteName, params: { id: entityId } })
 }
 
 async function onToggleStatus(entityId: number): Promise<void> {
@@ -126,12 +136,11 @@ function goToPage(page: number): void {
 }
 
 watch(
-  () => route.query,
+  () => props.fixedType,
   () => {
-    setTypeFilterFromRoute()
+    setTypeFilterFromProps()
     pagination.current_page = 1
   },
-  { deep: true },
 )
 
 watch(
@@ -142,7 +151,7 @@ watch(
 )
 
 onMounted(() => {
-  setTypeFilterFromRoute()
+  setTypeFilterFromProps()
   void fetchEntities()
 })
 
@@ -159,11 +168,15 @@ onBeforeUnmount(() => {
       <div class="flex flex-wrap items-center gap-2">
         <Input
           :model-value="searchText"
-          placeholder="Pesquisar por NIF, nome, email..."
+          placeholder="Pesquisar por NIF ou nome..."
           class="w-[280px]"
           @update:model-value="queueSearch(String($event))"
         />
-        <Select :model-value="filters.type" @update:model-value="filters.type = $event as TypeFilter">
+        <Select
+          :model-value="filters.type"
+          :disabled="props.fixedType !== 'all'"
+          @update:model-value="filters.type = $event as TypeFilter"
+        >
           <SelectTrigger class="w-[200px]">
             <SelectValue placeholder="Filtrar por tipo" />
           </SelectTrigger>
@@ -193,7 +206,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="flex gap-2">
-        <Button variant="outline" @click="router.push('/entities/new')">Criar entidade</Button>
+        <Button variant="outline" @click="emit('create')">Criar entidade</Button>
       </div>
     </div>
 

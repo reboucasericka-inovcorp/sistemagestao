@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   createCalendarAction,
   getCalendarActionById,
@@ -20,8 +21,20 @@ import type { CalendarAction } from '@/modules/settings/calendar-actions/types/c
 
 const route = useRoute()
 const router = useRouter()
-const isNew = computed(() => route.name === 'calendar-actions.new')
-const calendarActionId = computed(() => Number(route.params.id))
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+    recordId?: number | null
+    open?: boolean
+  }>(),
+  { mode: undefined, recordId: null, open: undefined },
+)
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
+const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'calendar-actions.new'))
+const calendarActionId = computed(() => Number(props.recordId ?? route.params.id))
 
 const pageLoading = ref(false)
 const submitLoading = ref(false)
@@ -31,7 +44,7 @@ const calendarTypeOptions = ref<CalendarTypeOption[]>([])
 
 const schema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório'),
-  calendar_type_id: z.coerce.number().int().positive().optional().nullable(),
+  calendar_type_id: z.coerce.number().int().positive('Tipo de calendário é obrigatório'),
   is_active: z.boolean(),
 })
 
@@ -39,11 +52,11 @@ type CalendarActionFormData = z.infer<typeof schema>
 
 const defaultValues: CalendarActionFormData = {
   name: '',
-  calendar_type_id: null,
+  calendar_type_id: 0,
   is_active: true,
 }
 
-const { resetForm, setFieldValue } = useForm<CalendarActionFormData>({
+const { resetForm, setErrors } = useForm<CalendarActionFormData>({
   validationSchema: toTypedSchema(schema),
   initialValues: defaultValues,
 })
@@ -52,7 +65,7 @@ function applyBackendCalendarAction(payload: CalendarAction): void {
   resetForm({
     values: {
       name: payload.name,
-      calendar_type_id: payload.calendar_type_id ?? null,
+      calendar_type_id: payload.calendar_type_id ?? 0,
       is_active: payload.is_active,
     },
   })
@@ -69,9 +82,26 @@ async function loadCalendarActionIfEditing(): Promise<void> {
 function toPayload(values: CalendarActionFormData): UpsertCalendarActionPayload {
   return {
     name: values.name,
-    calendar_type_id: values.calendar_type_id || null,
+    calendar_type_id: Number(values.calendar_type_id),
     is_active: values.is_active,
   }
+}
+
+function applyLaravelValidationErrors(error: unknown): void {
+  if (typeof error !== 'object' || !error || !('response' in error)) {
+    return
+  }
+  const errors = (
+    error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }
+  ).response?.data?.errors
+  if (!errors) {
+    return
+  }
+  setErrors({
+    name: errors.name?.[0],
+    calendar_type_id: errors.calendar_type_id?.[0],
+    is_active: errors.is_active?.[0],
+  })
 }
 
 async function onSubmit(submittedValues: CalendarActionFormData): Promise<void> {
@@ -82,13 +112,22 @@ async function onSubmit(submittedValues: CalendarActionFormData): Promise<void> 
     const payload = toPayload(submittedValues)
     if (isNew.value) {
       await createCalendarAction(payload)
-      await router.push('/settings/calendar-actions')
+      if (props.mode === 'create') {
+        emit('success')
+      } else {
+        await router.push('/settings/calendar-actions')
+      }
       return
     }
     await updateCalendarAction(calendarActionId.value, payload)
+    if (props.mode === 'edit') {
+      emit('success')
+      return
+    }
     feedbackKind.value = 'success'
     feedbackMessage.value = 'Ação de calendário atualizada com sucesso.'
   } catch (error: unknown) {
+    applyLaravelValidationErrors(error)
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -112,6 +151,20 @@ onMounted(async () => {
     pageLoading.value = false
   }
 })
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (!isOpen) return
+    feedbackKind.value = ''
+    feedbackMessage.value = ''
+    if (isNew.value) {
+      resetForm({ values: { ...defaultValues } })
+      return
+    }
+    await loadCalendarActionIfEditing()
+  },
+)
 </script>
 
 <template>
@@ -133,19 +186,27 @@ onMounted(async () => {
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ value }" name="calendar_type_id">
+      <FormField v-slot="{ value, handleChange }" name="calendar_type_id">
         <FormItem>
-          <FormLabel>Tipo de calendário (opcional)</FormLabel>
-          <FormControl>
-            <Input
-              :model-value="value == null ? '' : String(value)"
-              type="number"
-              min="1"
-              :placeholder="calendarTypeOptions.length ? 'Ex: 1 (opcional)' : 'Opcional (sem tipos disponíveis)'"
-              :disabled="pageLoading || submitLoading"
-              @update:model-value="setFieldValue('calendar_type_id', $event ? Number($event) : null)"
-            />
-          </FormControl>
+          <FormLabel>Tipo de calendário</FormLabel>
+          <Select
+            :model-value="value ? String(value) : ''"
+            :disabled="pageLoading || submitLoading || calendarTypeOptions.length === 0"
+            @update:model-value="(selectedValue) => handleChange(Number(selectedValue))"
+          >
+            <FormControl>
+              <SelectTrigger><SelectValue placeholder="Selecione o tipo de calendário" /></SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              <SelectItem
+                v-for="option in calendarTypeOptions"
+                :key="option.id"
+                :value="String(option.id)"
+              >
+                {{ option.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <FormMessage />
         </FormItem>
       </FormField>
@@ -165,7 +226,8 @@ onMounted(async () => {
       </FormField>
 
       <div class="footer">
-        <RouterLink to="/settings/calendar-actions">Cancelar</RouterLink>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <RouterLink v-else to="/settings/calendar-actions">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>

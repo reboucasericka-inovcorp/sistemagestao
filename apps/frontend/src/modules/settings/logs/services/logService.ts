@@ -7,6 +7,8 @@ export type ListLogsQuery = {
   user?: string
   menu?: string
   action?: string
+  date_from?: string
+  date_to?: string
   page?: number
   per_page?: number
 }
@@ -25,31 +27,25 @@ export type ListLogsResult = {
 
 type RawLog = {
   id: number
-  recorded_at?: string
-  created_at?: string
+  date?: string
+  time?: string
   user_name?: string | null
-  user?: { name?: string | null } | null
   menu?: string | null
   action?: string | null
   device?: string | null
-  ip?: string | null
   ip_address?: string | null
 }
 
 function mapRawLog(item: RawLog): Log {
-  const recordedAt = item.recorded_at ?? item.created_at ?? ''
-  const dateValue = recordedAt ? new Date(recordedAt) : null
-  const isValidDate = dateValue instanceof Date && !Number.isNaN(dateValue.getTime())
-
   return {
     id: item.id,
-    date: isValidDate ? dateValue.toLocaleDateString('pt-PT') : '-',
-    time: isValidDate ? dateValue.toLocaleTimeString('pt-PT') : '-',
-    user_name: item.user_name ?? item.user?.name ?? null,
+    date: item.date ?? '-',
+    time: item.time ?? '-',
+    user_name: item.user_name ?? null,
     menu: item.menu ?? '-',
     action: item.action ?? '-',
     device: item.device ?? null,
-    ip_address: item.ip_address ?? item.ip ?? null,
+    ip_address: item.ip_address ?? null,
   }
 }
 
@@ -60,16 +56,18 @@ export async function listLogsResult(query?: ListLogsQuery): Promise<ListLogsRes
       ...(query?.user ? { user: query.user } : {}),
       ...(query?.menu ? { menu: query.menu } : {}),
       ...(query?.action ? { action: query.action } : {}),
+      ...(query?.date_from ? { date_from: query.date_from } : {}),
+      ...(query?.date_to ? { date_to: query.date_to } : {}),
       ...(query?.page ? { page: query.page } : {}),
       ...(query?.per_page ? { per_page: query.per_page } : {}),
     },
   })
 
-  const normalized = normalizeListResponse(response) as {
+  const normalized = normalizeListResponse(response.data) as {
     data: RawLog[]
     meta?: Partial<LogsListMeta> | null
   }
-  const data = Array.isArray(normalized.data) ? normalized.data.map(mapRawLog) : []
+  const data = normalized.data.map(mapRawLog)
   return {
     data,
     meta: {

@@ -1,4 +1,5 @@
 import api from '@/shared/services/api'
+import { normalizeListResponse } from '@/core/utils/normalizeResponse'
 import type { Article } from '../types/article'
 
 export type ListArticlesQuery = {
@@ -19,45 +20,6 @@ export type ListArticlesResult = {
   meta: ArticlesListMeta
 }
 
-function normalizeListArticlesResponse(payload: unknown): ListArticlesResult {
-  if (Array.isArray(payload)) {
-    return {
-      data: payload as Article[],
-      meta: {
-        current_page: 1,
-        per_page: payload.length || 15,
-        total: payload.length,
-        last_page: 1,
-      },
-    }
-  }
-
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    const paginated = payload as {
-      data?: Article[]
-      current_page?: number
-      per_page?: number
-      total?: number
-      last_page?: number
-    }
-    const data = Array.isArray(paginated.data) ? paginated.data : []
-    return {
-      data,
-      meta: {
-        current_page: paginated.current_page ?? 1,
-        per_page: paginated.per_page ?? (data.length || 15),
-        total: paginated.total ?? data.length,
-        last_page: paginated.last_page ?? 1,
-      },
-    }
-  }
-
-  return {
-    data: [],
-    meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 },
-  }
-}
-
 export async function listArticlesResult(query?: ListArticlesQuery): Promise<ListArticlesResult> {
   const response = await api.get('/articles', {
     params: {
@@ -66,7 +28,21 @@ export async function listArticlesResult(query?: ListArticlesQuery): Promise<Lis
       ...(query?.per_page ? { per_page: query.per_page } : {}),
     },
   })
-  return normalizeListArticlesResponse(response.data.data)
+
+  const normalized = normalizeListResponse(response.data) as {
+    data: Article[]
+    meta?: Partial<ArticlesListMeta> | null
+  }
+  const data = normalized.data
+  return {
+    data,
+    meta: {
+      current_page: normalized.meta?.current_page ?? 1,
+      per_page: normalized.meta?.per_page ?? (data.length || 15),
+      total: normalized.meta?.total ?? data.length,
+      last_page: normalized.meta?.last_page ?? 1,
+    },
+  }
 }
 
 export async function listArticles(query?: ListArticlesQuery): Promise<Article[]> {
@@ -77,14 +53,14 @@ export async function listArticles(query?: ListArticlesQuery): Promise<Article[]
 export type VatOption = {
   id: number
   name: string
-  percentage: number
+  rate: number
 }
 
 export type UpsertArticlePayload = {
   reference: string
   name: string
   description?: string | null
-  price: number
+  price: string
   vat_id: number
   notes?: string | null
   is_active: boolean
@@ -168,10 +144,18 @@ export async function listVatOptions(): Promise<VatOption[]> {
       const response = await api.get(endpoint, { params: { active_only: 1, per_page: 100 } })
       const payload = response.data.data
       if (Array.isArray(payload)) {
-        return payload as VatOption[]
+        return (payload as Array<{ id: number; name: string; rate: number | string }>).map((vat) => ({
+          id: vat.id,
+          name: vat.name,
+          rate: Number(vat.rate),
+        }))
       }
       if (payload && Array.isArray(payload.data)) {
-        return payload.data as VatOption[]
+        return (payload.data as Array<{ id: number; name: string; rate: number | string }>).map((vat) => ({
+          id: vat.id,
+          name: vat.name,
+          rate: Number(vat.rate),
+        }))
       }
     } catch {
       // Try next endpoint.

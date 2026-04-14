@@ -27,6 +27,16 @@ import {
 import type { Country } from '@/modules/settings/countries/types/country'
 
 const router = useRouter()
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', id: number): void
+}>()
+const props = withDefaults(
+  defineProps<{
+    useEditModal?: boolean
+  }>(),
+  { useEditModal: false },
+)
 
 const countries = ref<Country[]>([])
 const loading = ref(false)
@@ -84,6 +94,10 @@ async function fetchCountries(): Promise<void> {
 }
 
 function goToEdit(countryId: number): void {
+  if (props.useEditModal) {
+    emit('edit', countryId)
+    return
+  }
   void router.push({ name: 'countries.edit', params: { id: countryId } })
 }
 
@@ -151,7 +165,7 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <Button variant="outline" @click="router.push('/settings/countries/new')">Criar país</Button>
+      <Button variant="outline" @click="emit('create')">Criar país</Button>
     </div>
 
     <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

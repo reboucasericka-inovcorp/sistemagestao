@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -28,8 +28,20 @@ import type { Article } from '@/modules/settings/articles/types/article'
 
 const route = useRoute()
 const router = useRouter()
-const isNew = computed(() => route.name === 'articles.new')
-const articleId = computed(() => Number(route.params.id))
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+    recordId?: number | null
+    open?: boolean
+  }>(),
+  { mode: undefined, recordId: null, open: undefined },
+)
+const emit = defineEmits<{
+  (e: 'success'): void
+  (e: 'cancel'): void
+}>()
+const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'articles.new'))
+const articleId = computed(() => Number(props.recordId ?? route.params.id))
 
 const pageLoading = ref(false)
 const submitLoading = ref(false)
@@ -43,7 +55,9 @@ const articleSchema = z.object({
   reference: z.string().trim().min(1, 'Referência é obrigatória'),
   name: z.string().trim().min(1, 'Nome é obrigatório'),
   description: z.string().trim().optional(),
-  price: z.coerce.number().positive('Preço deve ser maior que zero'),
+  price: z.string().trim().refine((value) => !Number.isNaN(Number(value)) && Number(value) >= 0, {
+    message: 'Preço deve ser maior ou igual a zero',
+  }),
   vat_id: z.coerce.number().int().positive('IVA é obrigatório'),
   notes: z.string().trim().optional(),
   is_active: z.boolean(),
@@ -55,13 +69,13 @@ const defaultValues: ArticleFormData = {
   reference: '',
   name: '',
   description: '',
-  price: 0,
+  price: '0.00',
   vat_id: 0,
   notes: '',
   is_active: true,
 }
 
-const { resetForm, setFieldValue } = useForm<ArticleFormData>({
+const { resetForm, setFieldValue, setErrors } = useForm<ArticleFormData>({
   validationSchema: toTypedSchema(articleSchema),
   initialValues: defaultValues,
 })
@@ -106,7 +120,7 @@ function toPayload(values: ArticleFormData): UpsertArticlePayload {
     reference: values.reference,
     name: values.name,
     description: values.description || null,
-    price: Number(values.price),
+    price: values.price,
     vat_id: values.vat_id,
     notes: values.notes || null,
     is_active: values.is_active,
@@ -114,23 +128,55 @@ function toPayload(values: ArticleFormData): UpsertArticlePayload {
   }
 }
 
+function applyLaravelValidationErrors(error: unknown): void {
+  if (typeof error !== 'object' || !error || !('response' in error)) {
+    return
+  }
+
+  const errors = (error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }).response?.data
+    ?.errors
+  if (!errors) {
+    return
+  }
+
+  setErrors({
+    reference: errors.reference?.[0],
+    name: errors.name?.[0],
+    description: errors.description?.[0],
+    price: errors.price?.[0],
+    vat_id: errors.vat_id?.[0],
+    notes: errors.notes?.[0],
+    is_active: errors.is_active?.[0],
+  })
+}
+
 async function onSubmit(submittedValues: ArticleFormData): Promise<void> {
   feedbackKind.value = ''
   feedbackMessage.value = ''
   submitLoading.value = true
   try {
+    setErrors({})
     const payload = toPayload(submittedValues)
     if (isNew.value) {
       await createArticle(payload)
       feedbackKind.value = 'success'
       feedbackMessage.value = 'Artigo criado com sucesso.'
-      await router.push('/settings/articles')
+      if (props.mode === 'create') {
+        emit('success')
+      } else {
+        await router.push('/settings/articles')
+      }
       return
     }
     await updateArticle(articleId.value, payload)
+    if (props.mode === 'edit') {
+      emit('success')
+      return
+    }
     feedbackKind.value = 'success'
     feedbackMessage.value = 'Artigo atualizado com sucesso.'
   } catch (error: unknown) {
+    applyLaravelValidationErrors(error)
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
@@ -154,6 +200,22 @@ onMounted(async () => {
     pageLoading.value = false
   }
 })
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (!isOpen) return
+    feedbackKind.value = ''
+    feedbackMessage.value = ''
+    if (isNew.value) {
+      resetForm({ values: { ...defaultValues } })
+      photoFile.value = null
+      photoPreviewUrl.value = null
+      return
+    }
+    await loadArticleIfEditing()
+  },
+)
 
 onBeforeUnmount(() => {
   if (photoPreviewUrl.value && photoPreviewUrl.value.startsWith('blob:')) {
@@ -206,12 +268,12 @@ onBeforeUnmount(() => {
           <FormLabel>Preço</FormLabel>
           <FormControl>
             <Input
-              :model-value="String(value ?? '')"
+              :model-value="String(value ?? '0.00')"
               type="number"
               step="0.01"
               min="0"
               :disabled="pageLoading || submitLoading"
-              @update:model-value="setFieldValue('price', Number($event))"
+              @update:model-value="setFieldValue('price', String($event ?? '0'))"
             />
           </FormControl>
           <FormMessage />
@@ -233,7 +295,7 @@ onBeforeUnmount(() => {
             </FormControl>
             <SelectContent>
               <SelectItem v-for="vat in vatOptions" :key="vat.id" :value="String(vat.id)">
-                {{ vat.name }} ({{ vat.percentage }}%)
+                {{ vat.name }} ({{ vat.rate }}%)
               </SelectItem>
             </SelectContent>
           </Select>
@@ -275,7 +337,8 @@ onBeforeUnmount(() => {
       </FormField>
 
       <div class="footer">
-        <RouterLink to="/settings/articles">Cancelar</RouterLink>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <RouterLink v-else to="/settings/articles">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>
