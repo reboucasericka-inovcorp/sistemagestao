@@ -12,7 +12,8 @@ return new class extends Migration
             return;
         }
 
-        $this->createIndexIfMissing('entities', 'entities_type_index', ['type']);
+        $this->createIndexIfMissing('entities', 'entities_is_client_index', ['is_client']);
+        $this->createIndexIfMissing('entities', 'entities_is_supplier_index', ['is_supplier']);
         $this->createIndexIfMissing('entities', 'entities_is_active_index', ['is_active']);
         $this->createIndexIfMissing('entities', 'entities_nif_index', ['nif']);
     }
@@ -23,7 +24,7 @@ return new class extends Migration
             return;
         }
 
-        foreach (['entities_type_index', 'entities_is_active_index', 'entities_nif_index'] as $indexName) {
+        foreach (['entities_is_client_index', 'entities_is_supplier_index', 'entities_is_active_index', 'entities_nif_index'] as $indexName) {
             if ($this->indexExists('entities', $indexName)) {
                 DB::statement("DROP INDEX {$indexName}");
             }
@@ -35,6 +36,12 @@ return new class extends Migration
      */
     private function createIndexIfMissing(string $table, string $indexName, array $columns): void
     {
+        foreach ($columns as $column) {
+            if (! Schema::hasColumn($table, $column)) {
+                return;
+            }
+        }
+
         if ($this->indexExists($table, $indexName)) {
             return;
         }
