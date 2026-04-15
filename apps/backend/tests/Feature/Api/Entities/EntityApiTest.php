@@ -25,7 +25,8 @@ class EntityApiTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/v1/entities', [
-            'type' => 'client',
+            'is_client' => true,
+            'is_supplier' => false,
             'nif' => '501964843',
             'name' => 'Cliente A',
             'address' => 'Rua A',
@@ -39,10 +40,11 @@ class EntityApiTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.type', 'client')
+            ->assertJsonPath('data.is_client', true)
+            ->assertJsonPath('data.is_supplier', false)
             ->assertJsonPath('data.nif', '501964843')
             ->assertJsonPath('data.country.id', $country->id)
-            ->assertJsonPath('data.number', 1);
+            ->assertJsonPath('data.number', 'ENT-000001');
     }
 
     public function test_it_validates_unique_nif(): void
@@ -52,8 +54,9 @@ class EntityApiTest extends TestCase
         $this->actingAs($user, 'sanctum');
 
         EntityModel::query()->create([
-            'type' => 'client',
-            'number' => 1,
+            'is_client' => true,
+            'is_supplier' => false,
+            'number' => 'ENT-000001',
             'nif' => '123456789',
             'name' => 'Existing',
             'is_active' => true,
@@ -61,7 +64,8 @@ class EntityApiTest extends TestCase
         ]);
 
         $response = $this->postJson('/api/v1/entities', [
-            'type' => 'supplier',
+            'is_client' => false,
+            'is_supplier' => true,
             'nif' => '123456789',
             'name' => 'Duplicated',
             'postal_code' => '1000-100',
@@ -70,30 +74,32 @@ class EntityApiTest extends TestCase
         $response->assertStatus(422)->assertJsonValidationErrors(['nif']);
     }
 
-    public function test_it_filters_by_type_and_returns_meta(): void
+    public function test_it_filters_by_is_client_and_returns_meta(): void
     {
         $user = User::factory()->create();
         $this->grantPermissions($user, ['entities.read']);
         $this->actingAs($user, 'sanctum');
 
         EntityModel::query()->create([
-            'type' => 'client',
-            'number' => 1,
+            'is_client' => true,
+            'is_supplier' => false,
+            'number' => 'ENT-000001',
             'nif' => '100000001',
             'name' => 'Client',
             'is_active' => true,
             'gdpr_consent' => false,
         ]);
         EntityModel::query()->create([
-            'type' => 'supplier',
-            'number' => 2,
+            'is_client' => false,
+            'is_supplier' => true,
+            'number' => 'ENT-000002',
             'nif' => '100000002',
             'name' => 'Supplier',
             'is_active' => true,
             'gdpr_consent' => false,
         ]);
 
-        $response = $this->getJson('/api/v1/entities?type=client&per_page=1');
+        $response = $this->getJson('/api/v1/entities?is_client=true&per_page=1');
 
         $response
             ->assertOk()
@@ -103,7 +109,7 @@ class EntityApiTest extends TestCase
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
             ])
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.type', 'client')
+            ->assertJsonPath('data.0.is_client', true)
             ->assertJsonPath('meta.per_page', 1);
     }
 
@@ -114,8 +120,9 @@ class EntityApiTest extends TestCase
         $this->actingAs($user, 'sanctum');
 
         $entity = EntityModel::query()->create([
-            'type' => 'both',
-            'number' => 1,
+            'is_client' => true,
+            'is_supplier' => true,
+            'number' => 'ENT-000001',
             'nif' => '200000001',
             'name' => 'Entity',
             'is_active' => true,

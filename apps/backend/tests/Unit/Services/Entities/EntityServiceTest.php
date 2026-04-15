@@ -16,7 +16,8 @@ class EntityServiceTest extends TestCase
         $service = app(EntityService::class);
 
         $first = $service->create([
-            'type' => 'client',
+            'is_client' => true,
+            'is_supplier' => false,
             'nif' => '501111111',
             'name' => 'First',
             'postal_code' => '1000-100',
@@ -25,7 +26,8 @@ class EntityServiceTest extends TestCase
         ]);
 
         $second = $service->create([
-            'type' => 'supplier',
+            'is_client' => false,
+            'is_supplier' => true,
             'nif' => '501111112',
             'name' => 'Second',
             'postal_code' => '1000-101',
@@ -33,8 +35,8 @@ class EntityServiceTest extends TestCase
             'gdpr_consent' => false,
         ]);
 
-        $this->assertSame(1, (int) $first->number);
-        $this->assertSame(2, (int) $second->number);
+        $this->assertSame('ENT-000001', $first->number);
+        $this->assertSame('ENT-000002', $second->number);
     }
 
     public function test_it_filters_clients_in_pagination(): void
@@ -42,16 +44,18 @@ class EntityServiceTest extends TestCase
         $service = app(EntityService::class);
 
         EntityModel::query()->create([
-            'type' => 'client',
-            'number' => 1,
+            'is_client' => true,
+            'is_supplier' => false,
+            'number' => 'ENT-000001',
             'nif' => '500000001',
             'name' => 'Client',
             'is_active' => true,
             'gdpr_consent' => false,
         ]);
         EntityModel::query()->create([
-            'type' => 'supplier',
-            'number' => 2,
+            'is_client' => false,
+            'is_supplier' => true,
+            'number' => 'ENT-000002',
             'nif' => '500000002',
             'name' => 'Supplier',
             'is_active' => true,
@@ -59,20 +63,21 @@ class EntityServiceTest extends TestCase
         ]);
 
         $result = $service->paginate([
-            'type' => 'client',
+            'is_client' => true,
             'per_page' => 10,
         ]);
 
         $this->assertSame(1, $result->total());
-        $this->assertSame('client', $result->items()[0]->type);
+        $this->assertTrue((bool) $result->items()[0]->is_client);
     }
 
     public function test_it_inactivates_entity(): void
     {
         $service = app(EntityService::class);
         $entity = EntityModel::query()->create([
-            'type' => 'both',
-            'number' => 1,
+            'is_client' => true,
+            'is_supplier' => true,
+            'number' => 'ENT-000001',
             'nif' => '500000003',
             'name' => 'Entity',
             'is_active' => true,
