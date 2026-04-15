@@ -3,7 +3,8 @@ import { normalizeListResponse } from '@/core/utils/normalizeResponse'
 import type { Entity } from '../types/entity'
 
 export type ListEntitiesQuery = {
-  type?: 'client' | 'supplier'
+  is_client?: boolean
+  is_supplier?: boolean
   active_only?: boolean
   search?: string
   page?: number
@@ -25,8 +26,9 @@ export type ListEntitiesResult = {
 export async function listEntitiesResult(query?: ListEntitiesQuery): Promise<ListEntitiesResult> {
   const response = await api.get('/entities', {
     params: {
-      ...(query?.type ? { type: query.type } : {}),
-      ...(query?.active_only ? { active_only: 1 } : {}),
+      ...(query?.is_client ? { is_client: true } : {}),
+      ...(query?.is_supplier ? { is_supplier: true } : {}),
+      ...(query?.active_only ? { active_only: true } : {}),
       ...(query?.search ? { search: query.search } : {}),
       ...(query?.page ? { page: query.page } : {}),
       ...(query?.per_page ? { per_page: query.per_page } : {}),
@@ -54,7 +56,8 @@ export async function listEntities(query?: ListEntitiesQuery): Promise<Entity[]>
 }
 
 export type UpsertEntityPayload = {
-  type: 'client' | 'supplier' | 'both'
+  is_client: boolean
+  is_supplier: boolean
   nif: string
   name: string
   address?: string | null
@@ -72,36 +75,34 @@ export type UpsertEntityPayload = {
 
 export async function getEntityById(id: number): Promise<Entity> {
   const response = await api.get(`/entities/${id}`)
-  return response.data.data as Entity
+  return (response.data?.data ?? response.data) as Entity
 }
 
 export async function createEntity(payload: UpsertEntityPayload): Promise<Entity> {
   const response = await api.post('/entities', payload)
-  return response.data.data as Entity
+  return (response.data?.data ?? response.data) as Entity
 }
 
 export async function updateEntity(id: number, payload: Partial<UpsertEntityPayload>): Promise<Entity> {
   const response = await api.put(`/entities/${id}`, payload)
-  return response.data.data as Entity
+  return (response.data?.data ?? response.data) as Entity
 }
 
 export async function toggleEntityStatus(id: number): Promise<Entity> {
   const response = await api.delete(`/entities/${id}`)
-  return response.data.data as Entity
+  return (response.data?.data ?? response.data) as Entity
 }
 
 export async function checkEntityNif(nif: string): Promise<{ available: boolean }> {
   const response = await api.get('/entities/check-nif', {
     params: { nif },
   })
-  return response.data.data as { available: boolean }
+  return (response.data?.data ?? response.data) as { available: boolean }
 }
 
 export async function lookupEntityByVies(
   nif: string,
-): Promise<{ name?: string; address?: string; city?: string; country?: string }> {
-  const response = await api.get('/entities/vies-lookup', {
-    params: { nif },
-  })
-  return response.data.data as { name?: string; address?: string; city?: string; country?: string }
+): Promise<{ name?: string; address?: string; valid: boolean }> {
+  const response = await api.get(`/vies/${encodeURIComponent(nif)}`)
+  return (response.data?.data ?? response.data) as { name?: string; address?: string; valid: boolean }
 }

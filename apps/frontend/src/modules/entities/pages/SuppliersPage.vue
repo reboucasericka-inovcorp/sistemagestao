@@ -4,29 +4,47 @@ import { useCrudModal } from '@/composables/useCrudModal'
 import EntitiesTable from '@/modules/entities/components/EntitiesTable.vue'
 import EntityForm from '@/modules/entities/pages/EntityForm.vue'
 
-const { openCreate, openEdit, editingId, tableKey, openCreateModal, closeCreateModal, openEditModal, closeEditModal, onSuccess } =
-  useCrudModal()
+const {
+  openCreate,
+  openEdit,
+  editingId,
+  tableKey,
+  openCreateModal,
+  closeCreateModal,
+  openEditModal,
+  closeEditModal,
+  onSuccess,
+} = useCrudModal()
 </script>
 
 <template>
   <div>
     <h1>Fornecedores</h1>
+    <h2>“Lista de entidades marcadas como fornecedores.”</h2>
     <EntitiesTable
       :key="tableKey"
-      fixed-type="supplier"
-      create-path="/suppliers/new"
+      fixed-filter="is_supplier"
       edit-route-name="suppliers.edit"
       :use-edit-modal="true"
       @create="openCreateModal"
       @edit="openEditModal"
     />
     <FormModal v-model:open="openCreate" title="Novo fornecedor">
-      <EntityForm mode="create" :open="openCreate" @cancel="closeCreateModal" @success="onSuccess" />
+      <EntityForm
+        mode="create"
+        :default-is-client="false"
+        :default-is-supplier="true"
+        :open="openCreate"
+        @cancel="closeCreateModal"
+        @success="onSuccess"
+      />
     </FormModal>
     <FormModal v-model:open="openEdit" title="Editar fornecedor">
       <EntityForm
         v-if="editingId"
         mode="edit"
+        :default-is-client="false"
+        :default-is-supplier="true"
         :open="openEdit"
         :record-id="editingId"
         @cancel="closeEditModal"

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -11,22 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableEmpty,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   listEntitiesResult,
-  toggleEntityStatus,
   type EntitiesListMeta,
 } from '@/modules/entities/services/entityService'
 import type { Entity } from '@/modules/entities/types/entity'
 
-type TypeFilter = 'all' | 'client' | 'supplier'
+type EntityFilter = 'all' | 'is_client' | 'is_supplier'
 
 const emit = defineEmits<{
   (e: 'create'): void
@@ -35,30 +27,29 @@ const emit = defineEmits<{
 
 const props = withDefaults(
   defineProps<{
-    fixedType?: TypeFilter
-    createPath?: string
+    fixedFilter?: EntityFilter
     editRouteName?: 'entities.edit' | 'clients.edit' | 'suppliers.edit'
     useEditModal?: boolean
+    showCreateAction?: boolean
   }>(),
   {
-    fixedType: 'all',
-    createPath: '/entities/new',
+    fixedFilter: 'all',
     editRouteName: 'entities.edit',
     useEditModal: false,
+    showCreateAction: true,
   },
 )
 const router = useRouter()
 
 const entities = ref<Entity[]>([])
 const loading = ref(false)
-const togglingId = ref<number | null>(null)
 const errorMessage = ref('')
 const searchText = ref('')
 const searchDebounced = ref('')
 const debounceId = ref<number | null>(null)
 
 const filters = reactive({
-  type: 'all' as TypeFilter,
+  mode: 'all' as EntityFilter,
 })
 
 const pagination = reactive<EntitiesListMeta>({
@@ -70,9 +61,28 @@ const pagination = reactive<EntitiesListMeta>({
 
 const hasPreviousPage = computed(() => pagination.current_page > 1)
 const hasNextPage = computed(() => pagination.current_page < pagination.last_page)
+const tableColumns: ColumnDef<Record<string, unknown>, unknown>[] = [
+  { accessorKey: 'nif', header: 'NIF' },
+  { accessorKey: 'name', header: 'Nome' },
+  { accessorKey: 'phone', header: 'Telefone' },
+  { accessorKey: 'mobile', header: 'Telemóvel' },
+  { accessorKey: 'website', header: 'Website' },
+  { accessorKey: 'email', header: 'Email' },
+]
+const tableRows = computed<Record<string, unknown>[]>(() =>
+  entities.value.map((entity) => ({
+    id: entity.id,
+    nif: entity.nif,
+    name: entity.name,
+    phone: entity.phone || '-',
+    mobile: entity.mobile || '-',
+    website: entity.website || '-',
+    email: entity.email || '-',
+  })),
+)
 
 function setTypeFilterFromProps(): void {
-  filters.type = props.fixedType
+  filters.mode = props.fixedFilter
 }
 
 async function fetchEntities(): Promise<void> {
@@ -80,7 +90,8 @@ async function fetchEntities(): Promise<void> {
   errorMessage.value = ''
   try {
     const result = await listEntitiesResult({
-      type: filters.type === 'all' ? undefined : filters.type,
+      is_client: filters.mode === 'is_client' ? true : undefined,
+      is_supplier: filters.mode === 'is_supplier' ? true : undefined,
       page: pagination.current_page,
       per_page: pagination.per_page,
       search: searchDebounced.value || undefined,
@@ -118,14 +129,12 @@ function goToEdit(entityId: number): void {
   void router.push({ name: props.editRouteName, params: { id: entityId } })
 }
 
-async function onToggleStatus(entityId: number): Promise<void> {
-  togglingId.value = entityId
-  try {
-    await toggleEntityStatus(entityId)
-    await fetchEntities()
-  } finally {
-    togglingId.value = null
+function onRowClick(row: Record<string, unknown>): void {
+  const id = Number(row.id)
+  if (Number.isNaN(id)) {
+    return
   }
+  goToEdit(id)
 }
 
 function goToPage(page: number): void {
@@ -136,7 +145,7 @@ function goToPage(page: number): void {
 }
 
 watch(
-  () => props.fixedType,
+  () => props.fixedFilter,
   () => {
     setTypeFilterFromProps()
     pagination.current_page = 1
@@ -144,7 +153,7 @@ watch(
 )
 
 watch(
-  () => [filters.type, pagination.current_page, pagination.per_page, searchDebounced.value],
+  () => [filters.mode, pagination.current_page, pagination.per_page, searchDebounced.value],
   () => {
     void fetchEntities()
   },
@@ -173,24 +182,23 @@ onBeforeUnmount(() => {
           @update:model-value="queueSearch(String($event))"
         />
         <Select
-          :model-value="filters.type"
-          :disabled="props.fixedType !== 'all'"
-          @update:model-value="filters.type = $event as TypeFilter"
+          :model-value="filters.mode"
+          :disabled="props.fixedFilter !== 'all'"
+          @update:model-value="filters.mode = $event as EntityFilter"
         >
           <SelectTrigger class="w-[200px]">
             <SelectValue placeholder="Filtrar por tipo" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="client">Clientes</SelectItem>
-            <SelectItem value="supplier">Fornecedores</SelectItem>
+            <SelectItem value="is_client">Clientes</SelectItem>
+            <SelectItem value="is_supplier">Fornecedores</SelectItem>
           </SelectContent>
         </Select>
         <Select
           :model-value="String(pagination.per_page)"
           @update:model-value="
-            pagination.per_page = Number($event);
-            pagination.current_page = 1
+            ((pagination.per_page = Number($event)), (pagination.current_page = 1))
           "
         >
           <SelectTrigger class="w-[120px]">
@@ -205,67 +213,46 @@ onBeforeUnmount(() => {
         </Select>
       </div>
 
-      <div class="flex gap-2">
-        <Button variant="outline" @click="emit('create')">Criar entidade</Button>
+      <div v-if="props.showCreateAction" class="flex gap-2">
+        <Button variant="outline" @click="emit('create')">Criar novo(a)</Button>
       </div>
     </div>
 
-    <div v-if="errorMessage" class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+    <div
+      v-if="errorMessage"
+      class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+    >
       {{ errorMessage }}
     </div>
 
-    <div class="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>NIF</TableHead>
-            <TableHead>Nome</TableHead>
-            <TableHead>Telefone</TableHead>
-            <TableHead>Telemóvel</TableHead>
-            <TableHead>Website</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead class="text-right">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableEmpty v-if="loading" :colspan="8">A carregar entidades...</TableEmpty>
-          <TableEmpty v-else-if="!entities.length" :colspan="8">Nenhuma entidade encontrada.</TableEmpty>
-          <TableRow v-for="entity in entities" v-else :key="entity.id">
-            <TableCell>{{ entity.nif }}</TableCell>
-            <TableCell>{{ entity.name }}</TableCell>
-            <TableCell>{{ entity.phone || '-' }}</TableCell>
-            <TableCell>{{ entity.mobile || '-' }}</TableCell>
-            <TableCell>{{ entity.website || '-' }}</TableCell>
-            <TableCell>{{ entity.email || '-' }}</TableCell>
-            <TableCell>{{ entity.is_active ? 'Ativo' : 'Inativo' }}</TableCell>
-            <TableCell class="text-right">
-              <div class="flex justify-end gap-2">
-                <Button size="sm" variant="outline" @click="goToEdit(entity.id)">Editar</Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  :disabled="togglingId === entity.id"
-                  @click="onToggleStatus(entity.id)"
-                >
-                  {{ entity.is_active ? 'Inativar' : 'Ativar' }}
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
+    <DataTable
+      :data="tableRows"
+      :columns="tableColumns"
+      :loading="loading"
+      empty-message="Nenhuma entidade encontrada."
+      @row-click="onRowClick"
+    />
 
     <div class="flex items-center justify-between text-sm text-muted-foreground">
       <p>
-        Página {{ pagination.current_page }} de {{ pagination.last_page }} · {{ pagination.total }} registos
+        Página {{ pagination.current_page }} de {{ pagination.last_page }} ·
+        {{ pagination.total }} registos
       </p>
       <div class="flex gap-2">
-        <Button variant="outline" size="sm" :disabled="!hasPreviousPage || loading" @click="goToPage(pagination.current_page - 1)">
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!hasPreviousPage || loading"
+          @click="goToPage(pagination.current_page - 1)"
+        >
           Anterior
         </Button>
-        <Button variant="outline" size="sm" :disabled="!hasNextPage || loading" @click="goToPage(pagination.current_page + 1)">
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="!hasNextPage || loading"
+          @click="goToPage(pagination.current_page + 1)"
+        >
           Próxima
         </Button>
       </div>

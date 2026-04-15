@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import type { RouteLocationRaw } from 'vue-router'
+import { Button } from '@/components/ui/button'
+import { useCompany } from '@/core/company/useCompany'
+import { fetchAuthenticatedUser, logout } from '@/modules/auth/services/authService'
+import type { AuthenticatedUser } from '@/modules/auth/services/authService'
 import AppNavLink from '@/shared/components/AppNavLink.vue'
 
 type NavItem = {
@@ -52,6 +56,12 @@ const navItems: NavItem[] = [
 
 const route = useRoute()
 const router = useRouter()
+const { company, loadCompany } = useCompany()
+const profileMenuOpen = ref(false)
+const authenticatedUser = ref<AuthenticatedUser | null>(null)
+const logoutLoading = ref(false)
+const companyName = computed(() => company.value?.name || '')
+const companyLogoUrl = computed(() => company.value?.logo_url || null)
 
 const isItemActive = (item: NavItem): boolean => {
   if (item.children?.length) {
@@ -88,12 +98,39 @@ const isDropdownOpen = (item: NavItem): boolean => {
 }
 
 const navList = computed(() => navItems)
+
+const toggleProfileMenu = (): void => {
+  profileMenuOpen.value = !profileMenuOpen.value
+}
+
+const closeProfileMenu = (): void => {
+  profileMenuOpen.value = false
+}
+
+const handleLogout = async (): Promise<void> => {
+  logoutLoading.value = true
+  try {
+    await logout()
+    authenticatedUser.value = null
+  } finally {
+    logoutLoading.value = false
+    closeProfileMenu()
+    await router.push('/login')
+  }
+}
+
+onMounted(async () => {
+  await Promise.allSettled([fetchAuthenticatedUser().then((user) => { authenticatedUser.value = user }), loadCompany()])
+})
 </script>
 
 <template>
   <div class="app-layout">
     <aside class="sidebar" aria-label="Navegação principal">
-      <header class="brand">Gestão</header>
+      <header class="brand">
+        <img v-if="companyLogoUrl" :src="companyLogoUrl" alt="Logótipo da empresa" class="brand-logo" />
+        <span v-if="companyName">{{ companyName }}</span>
+      </header>
       <nav class="nav-wrapper">
         <ul class="nav-list">
           <li v-for="item in navList" :key="item.label">
@@ -120,7 +157,32 @@ const navList = computed(() => navItems)
         </ul>
       </nav>
       <footer class="sidebar-footer">
-        <AppNavLink to="/login">Sessão / Login</AppNavLink>
+        <p class="footer-title">Perfil</p>
+        <div class="profile-menu-wrapper">
+          <Button
+            type="button"
+            variant="outline"
+            class="profile-trigger"
+            :aria-expanded="profileMenuOpen"
+            :disabled="!authenticatedUser"
+            @click="toggleProfileMenu"
+          >
+            <span class="profile-name">{{ authenticatedUser?.name }}</span>
+            <span class="chevron" :class="{ open: profileMenuOpen }">▾</span>
+          </Button>
+
+          <div v-if="profileMenuOpen" class="profile-menu">
+            <AppNavLink to="/profile/security" @click="closeProfileMenu">Perfil e Segurança</AppNavLink>
+            <button
+              type="button"
+              class="logout-button"
+              :disabled="logoutLoading"
+              @click="handleLogout"
+            >
+              {{ logoutLoading ? 'A sair...' : 'Logout' }}
+            </button>
+          </div>
+        </div>
       </footer>
     </aside>
     <main class="main">
@@ -151,10 +213,20 @@ const navList = computed(() => navItems)
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 600;
   font-size: 1.1rem;
   color: #0f172a;
   padding: 0 0.5rem;
+}
+
+.brand-logo {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.35rem;
+  object-fit: cover;
 }
 
 .nav-list {
@@ -218,7 +290,9 @@ const navList = computed(() => navItems)
   border-radius: 6px;
   color: #1e293b;
   font-weight: 500;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 :deep(.nav-list li a:hover) {
@@ -236,6 +310,64 @@ const navList = computed(() => navItems)
   margin-top: auto;
   padding-top: 1rem;
   border-top: 1px solid #dbe3ee;
+}
+
+.footer-title {
+  margin: 0 0 0.5rem;
+  padding: 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+}
+
+.profile-menu-wrapper {
+  position: relative;
+}
+
+.profile-trigger {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.profile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-menu {
+  margin-top: 0.35rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.logout-button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  color: #991b1b;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.logout-button:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.logout-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.profile-menu :deep(a) {
+  border-radius: 0;
+  display: block;
 }
 
 .main {

@@ -16,12 +16,9 @@ function onCreateSuccess(): void {
 <template>
   <div>
     <h1>Contactos</h1>
-    <p class="actions">
-      <button type="button" class="link-button" @click="openCreate = true">Novo contacto</button>
-      ·
-      <RouterLink to="/entities">Entidades</RouterLink>
-    </p>
-    <p class="hint">Relacionados com entidades; função configurável (ver `docs/guide.md`).</p>
+    <h2>“Cada contato pertence a uma entidade.”</h2>
+    <p class="actions"></p>
+
     <ContactsTable :key="tableKey" @create="openCreate = true" />
     <FormModal v-model:open="openCreate" title="Novo contacto">
       <ContactFormSection mode="create" @cancel="openCreate = false" @success="onCreateSuccess" />

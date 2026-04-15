@@ -1,30 +1,78 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchSanctumCsrfCookie, loginWithCredentials } from '@/modules/auth/services/authService'
+import { useCompany } from '@/core/company/useCompany'
+import {
+  completeTwoFactorLogin,
+  fetchSanctumCsrfCookie,
+  loginWithCredentials,
+} from '@/modules/auth/services/authService'
 
 const router = useRouter()
+const { company, loadCompany } = useCompany()
 
 const email = ref('')
 const password = ref('')
+const twoFactorCode = ref('')
+const recoveryCode = ref('')
+const useRecoveryCode = ref(false)
+const requiresTwoFactor = ref(false)
+const errorMessage = ref('')
 const loading = ref(false)
+const companyName = computed(() => company.value?.name || '')
+const companyLogoUrl = computed(() => company.value?.logo_url || null)
 
 const login = async () => {
   loading.value = true
+  errorMessage.value = ''
   try {
     await fetchSanctumCsrfCookie()
-    await loginWithCredentials({ email: email.value, password: password.value })
-    router.push('/entities')
+    const loginResult = await loginWithCredentials({ email: email.value, password: password.value })
+    if (loginResult.two_factor) {
+      requiresTwoFactor.value = true
+      return
+    }
+    router.push('/clients')
   } catch (e: unknown) {
-    const msg = axios.isAxiosError(e)
+    errorMessage.value = axios.isAxiosError(e)
       ? String((e.response?.data as { message?: unknown })?.message ?? e.message)
       : 'Erro no login'
-    alert(msg || 'Erro no login')
   } finally {
     loading.value = false
   }
 }
+
+const submitTwoFactor = async () => {
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    await fetchSanctumCsrfCookie()
+    await completeTwoFactorLogin(
+      useRecoveryCode.value
+        ? { recovery_code: recoveryCode.value.trim() }
+        : { code: twoFactorCode.value.trim() },
+    )
+    router.push('/clients')
+  } catch (e: unknown) {
+    const status = axios.isAxiosError(e) ? e.response?.status : undefined
+    if (status === 422) {
+      errorMessage.value = useRecoveryCode.value
+        ? 'Código de recuperação inválido.'
+        : 'Código de autenticação inválido.'
+      return
+    }
+    errorMessage.value = axios.isAxiosError(e)
+      ? String((e.response?.data as { message?: unknown })?.message ?? e.message)
+      : 'Erro na validação de dois fatores'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadCompany()
+})
 </script>
 
 <template>
@@ -35,13 +83,14 @@ const login = async () => {
     <div class="login-card-wrap">
       <div class="login-card">
         <div class="login-brand">
-          <h1 class="login-brand-title">Sistema de Gestão</h1>
+          <img v-if="companyLogoUrl" :src="companyLogoUrl" alt="Logótipo da empresa" class="login-brand-logo" />
+          <h1 v-if="companyName" class="login-brand-title">{{ companyName }}</h1>
           <p class="login-brand-tagline">Acesso ao sistema</p>
         </div>
 
-        <h2 class="login-form-title">Login</h2>
+        <h2 class="login-form-title">{{ requiresTwoFactor ? 'Autenticação de dois fatores' : 'Login' }}</h2>
 
-        <form class="login-form" @submit.prevent="login">
+        <form v-if="!requiresTwoFactor" class="login-form" @submit.prevent="login">
           <label class="sr-only" for="login-email">Email</label>
           <input
             id="login-email"
@@ -66,6 +115,44 @@ const login = async () => {
             {{ loading ? 'Entrando...' : 'Entrar' }}
           </button>
         </form>
+
+        <form v-else class="login-form" @submit.prevent="submitTwoFactor">
+          <p class="login-help">
+            Introduza o código da aplicação autenticadora ou utilize um código de recuperação.
+          </p>
+
+          <label class="recovery-toggle">
+            <input v-model="useRecoveryCode" type="checkbox" />
+            Usar código de recuperação
+          </label>
+
+          <label class="sr-only" for="two-factor-code">Código 2FA</label>
+          <input
+            v-if="!useRecoveryCode"
+            id="two-factor-code"
+            v-model="twoFactorCode"
+            type="text"
+            autocomplete="one-time-code"
+            placeholder="Código do autenticador"
+            class="login-input"
+          />
+
+          <label class="sr-only" for="recovery-code">Código de recuperação</label>
+          <input
+            v-if="useRecoveryCode"
+            id="recovery-code"
+            v-model="recoveryCode"
+            type="text"
+            placeholder="Código de recuperação"
+            class="login-input"
+          />
+
+          <button type="submit" class="login-submit" :disabled="loading">
+            {{ loading ? 'Validando...' : 'Validar e entrar' }}
+          </button>
+        </form>
+
+        <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
       </div>
     </div>
   </div>
@@ -137,6 +224,14 @@ const login = async () => {
 
 .login-brand {
   margin-bottom: 1.5rem;
+}
+
+.login-brand-logo {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 0.75rem;
+  border-radius: 0.75rem;
+  object-fit: cover;
 }
 
 .login-brand-title {
@@ -216,5 +311,25 @@ const login = async () => {
 .login-submit:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.login-help {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.85rem;
+}
+
+.recovery-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #d1d5db;
+  font-size: 0.85rem;
+}
+
+.login-error {
+  margin-top: 0.9rem;
+  color: #fca5a5;
+  font-size: 0.88rem;
 }
 </style>

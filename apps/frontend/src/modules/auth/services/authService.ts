@@ -21,6 +21,58 @@ export async function fetchSanctumCsrfCookie(): Promise<void> {
   await sanctumHttp.get('/sanctum/csrf-cookie')
 }
 
-export async function loginWithCredentials(credentials: LoginCredentials): Promise<void> {
-  await sanctumHttp.post('/login', credentials)
+export type LoginResponsePayload = {
+  two_factor?: boolean
+}
+
+export async function loginWithCredentials(credentials: LoginCredentials): Promise<LoginResponsePayload> {
+  const response = await sanctumHttp.post<LoginResponsePayload>('/login', credentials)
+  return response.data
+}
+
+export async function completeTwoFactorLogin(payload: {
+  code?: string
+  recovery_code?: string
+}): Promise<LoginResponsePayload> {
+  const response = await sanctumHttp.post<LoginResponsePayload>('/two-factor-challenge', payload)
+  return response.data
+}
+
+export type AuthenticatedUser = {
+  id: number
+  name: string
+  email: string
+}
+
+type AuthenticatedUserPayload =
+  | AuthenticatedUser
+  | {
+      data?: AuthenticatedUser
+    }
+
+function normalizeAuthenticatedUser(payload: AuthenticatedUserPayload): AuthenticatedUser | null {
+  if ('name' in payload && typeof payload.name === 'string') {
+    return payload
+  }
+
+  if ('data' in payload && payload.data?.name) {
+    return payload.data
+  }
+
+  return null
+}
+
+export async function fetchAuthenticatedUser(): Promise<AuthenticatedUser | null> {
+  try {
+    const response = await sanctumHttp.get<AuthenticatedUserPayload>('/api/v1/me')
+    const normalized = normalizeAuthenticatedUser(response.data)
+    return normalized
+  } catch {
+    return null
+  }
+}
+
+export async function logout(): Promise<void> {
+  await fetchSanctumCsrfCookie()
+  await sanctumHttp.post('/logout')
 }

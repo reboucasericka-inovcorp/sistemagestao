@@ -18,6 +18,7 @@ export type Entity = {
   email: string | null
   gdpr_consent: boolean
   is_active: boolean
+  is_client: boolean
+  is_supplier: boolean
   notes: string | null
-  type: 'client' | 'supplier' | 'both'
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -36,8 +36,10 @@ const props = withDefaults(
     mode?: 'create' | 'edit'
     recordId?: number | null
     open?: boolean
+    defaultIsClient?: boolean
+    defaultIsSupplier?: boolean
   }>(),
-  { mode: undefined, recordId: null, open: undefined },
+  { mode: undefined, recordId: null, open: undefined, defaultIsClient: undefined, defaultIsSupplier: undefined },
 )
 const emit = defineEmits<{
   (e: 'success'): void
@@ -51,9 +53,11 @@ const entityId = computed(() => Number(props.recordId ?? route.params.id))
 const submitLoading = ref(false)
 const pageLoading = ref(false)
 const nifChecking = ref(false)
+const viesLoading = ref(false)
 const feedbackMessage = ref('')
 const feedbackKind = ref<'success' | 'error' | ''>('')
 const countryOptions = ref<Country[]>([])
+const viesDebounceId = ref<number | null>(null)
 
 const entitySchema = z
   .object({
@@ -107,7 +111,7 @@ const defaultValues: EntityFormData = {
   notes: '',
 }
 
-const { resetForm, setErrors, setFieldError, setFieldValue, values } = useForm<EntityFormData>({
+const { setValues, setErrors, setFieldError, setFieldValue, values, handleSubmit } = useForm<EntityFormData>({
   validationSchema: toTypedSchema(entitySchema),
   initialValues: defaultValues,
 })
@@ -120,17 +124,17 @@ function normalizePostalCode(raw: string): string {
   return `${digits.slice(0, 4)}-${digits.slice(4)}`
 }
 
-function resolveEntityType(formValues: Pick<EntityFormData, 'is_client' | 'is_supplier'>): UpsertEntityPayload['type'] {
-  if (formValues.is_client && formValues.is_supplier) {
-    return 'both'
-  }
-  if (formValues.is_client) {
-    return 'client'
-  }
-  return 'supplier'
-}
-
 function setTypeDefaultsFromQuery(): void {
+  if (props.defaultIsClient === true && props.defaultIsSupplier !== true) {
+    setFieldValue('is_client', true)
+    setFieldValue('is_supplier', false)
+    return
+  }
+  if (props.defaultIsSupplier === true && props.defaultIsClient !== true) {
+    setFieldValue('is_client', false)
+    setFieldValue('is_supplier', true)
+    return
+  }
   if (route.name === 'clients.new') {
     setFieldValue('is_client', true)
     setFieldValue('is_supplier', false)
@@ -146,29 +150,27 @@ function setTypeDefaultsFromQuery(): void {
 }
 
 function applyBackendEntity(payload: Entity): void {
-  resetForm({
-    values: {
-      ...defaultValues,
-      nif: payload.nif ?? '',
-      name: payload.name ?? '',
-      address: payload.address ?? '',
-      postal_code: payload.postal_code ?? '',
-      city: payload.city ?? '',
-      country_id: payload.country?.id ? String(payload.country.id) : '',
-      phone: payload.phone ?? '',
-      mobile: payload.mobile ?? '',
-      website: payload.website ?? '',
-      email: payload.email ?? '',
-      gdpr_consent: Boolean(payload.gdpr_consent),
-      is_active: payload.is_active ?? true,
-      is_client: payload.type === 'client' || payload.type === 'both',
-      is_supplier: payload.type === 'supplier' || payload.type === 'both',
-      notes: payload.notes ?? '',
-    },
+  setValues({
+    nif: payload.nif ?? '',
+    name: payload.name ?? '',
+    address: payload.address ?? '',
+    postal_code: payload.postal_code ?? '',
+    city: payload.city ?? '',
+    country_id: payload.country?.id ? String(payload.country.id) : '',
+    phone: payload.phone ?? '',
+    mobile: payload.mobile ?? '',
+    website: payload.website ?? '',
+    email: payload.email ?? '',
+    gdpr_consent: Boolean(payload.gdpr_consent),
+    is_active: payload.is_active ?? true,
+    is_client: Boolean(payload.is_client),
+    is_supplier: Boolean(payload.is_supplier),
+    notes: payload.notes ?? '',
   })
 }
 
 async function loadEntityIfEditing(): Promise<void> {
+  console.log('ID:', entityId.value)
   if (isNew.value || Number.isNaN(entityId.value)) {
     setTypeDefaultsFromQuery()
     return
@@ -177,7 +179,10 @@ async function loadEntityIfEditing(): Promise<void> {
   pageLoading.value = true
   try {
     const data = await getEntityById(entityId.value)
-    applyBackendEntity(data)
+    console.log('RAW API RESULT:', data)
+    const normalized = (data as Entity & { data?: Entity })?.data ?? data
+    console.log('NORMALIZED:', normalized)
+    applyBackendEntity(normalized as Entity)
   } catch {
     feedbackKind.value = 'error'
     feedbackMessage.value = 'Não foi possível carregar a entidade.'
@@ -187,7 +192,7 @@ async function loadEntityIfEditing(): Promise<void> {
 }
 
 function resetForCreate(): void {
-  resetForm({ values: { ...defaultValues } })
+  setValues({ ...defaultValues })
   setTypeDefaultsFromQuery()
 }
 
@@ -209,28 +214,39 @@ async function onNifBlur(): Promise<void> {
   } catch {
     // Endpoint pode ainda não existir. Não bloqueia o formulário.
   }
+  nifChecking.value = false
+}
 
+async function fetchViesData(nifDigits: string): Promise<void> {
+  if (!nifDigits) {
+    return
+  }
+
+  viesLoading.value = true
   try {
     const viesData = await lookupEntityByVies(nifDigits)
+    if (!viesData.valid) {
+      return
+    }
     if (viesData.name && !values.name) {
       setFieldValue('name', viesData.name)
     }
     if (viesData.address && !values.address) {
       setFieldValue('address', viesData.address)
     }
-    if (viesData.city && !values.city) {
-      setFieldValue('city', viesData.city)
-    }
   } catch {
-    // Integração pode não estar disponível ainda no backend.
+    // Integração pode não estar disponível no ambiente.
   } finally {
-    nifChecking.value = false
+    viesLoading.value = false
   }
 }
 
 function toPayload(data: EntityFormData): UpsertEntityPayload {
+  const resolvedKinds = resolveEntityKinds(data)
+
   return {
-    type: resolveEntityType(data),
+    is_client: resolvedKinds.is_client,
+    is_supplier: resolvedKinds.is_supplier,
     nif: data.nif.replace(/\D/g, ''),
     name: data.name.trim(),
     address: data.address || null,
@@ -244,6 +260,21 @@ function toPayload(data: EntityFormData): UpsertEntityPayload {
     gdpr_consent: data.gdpr_consent,
     is_active: data.is_active,
     notes: data.notes || null,
+  }
+}
+
+function resolveEntityKinds(data: EntityFormData): { is_client: boolean; is_supplier: boolean } {
+  if (isNew.value && props.defaultIsClient === true && props.defaultIsSupplier !== true) {
+    return { is_client: true, is_supplier: false }
+  }
+
+  if (isNew.value && props.defaultIsSupplier === true && props.defaultIsClient !== true) {
+    return { is_client: false, is_supplier: true }
+  }
+
+  return {
+    is_client: Boolean(data.is_client),
+    is_supplier: Boolean(data.is_supplier),
   }
 }
 
@@ -271,18 +302,21 @@ function applyLaravelValidationErrors(error: unknown): void {
     gdpr_consent: errors.gdpr_consent?.[0],
     notes: errors.notes?.[0],
     is_active: errors.is_active?.[0],
-    is_client: errors.type?.[0],
+    is_client: errors.is_client?.[0],
+    is_supplier: errors.is_supplier?.[0],
   })
 }
 
-async function onSubmit(submittedValues: EntityFormData): Promise<void> {
+async function submitEntity(submittedValues: EntityFormData): Promise<void> {
   feedbackKind.value = ''
   feedbackMessage.value = ''
 
   submitLoading.value = true
   try {
     setErrors({})
+    console.info('[EntityForm] submittedValues', submittedValues)
     const payload = toPayload(submittedValues)
+    console.info('[EntityForm] payload before POST/PUT', payload)
     if (isNew.value) {
       await createEntity(payload)
       const returnPath =
@@ -318,12 +352,39 @@ async function onSubmit(submittedValues: EntityFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = handleSubmit(async (submittedValues) => {
+  await submitEntity(submittedValues as EntityFormData)
+})
+
+async function onSubmit(values?: EntityFormData): Promise<void> {
+  if (values) {
+    await submitEntity(values)
+    return
+  }
+
+  await submitWithValidation()
+}
+
 onMounted(async () => {
   pageLoading.value = true
   try {
-    const countriesResult = await listCountriesResult({ per_page: 100 })
-    countryOptions.value = countriesResult.data.filter((country) => country.is_active)
-    await loadEntityIfEditing()
+    const [countriesLoad, entityLoad] = await Promise.allSettled([
+      listCountriesResult({ per_page: 100 }),
+      loadEntityIfEditing(),
+    ])
+
+    if (countriesLoad.status === 'fulfilled') {
+      countryOptions.value = countriesLoad.value.data.filter((country) => country.is_active)
+    }
+
+    if (countriesLoad.status === 'rejected' && entityLoad.status === 'fulfilled') {
+      feedbackKind.value = 'error'
+      feedbackMessage.value = 'Entidade carregada, mas não foi possível carregar a lista de países.'
+    }
+
+    if (entityLoad.status === 'rejected') {
+      throw entityLoad.reason
+    }
   } catch {
     feedbackKind.value = 'error'
     feedbackMessage.value = 'Não foi possível carregar dados da entidade.'
@@ -345,6 +406,30 @@ watch(
     await loadEntityIfEditing()
   },
 )
+
+watch(
+  () => values.nif,
+  (rawNif) => {
+    const nifDigits = (rawNif ?? '').replace(/\D/g, '')
+    if (viesDebounceId.value != null) {
+      window.clearTimeout(viesDebounceId.value)
+      viesDebounceId.value = null
+    }
+    if (nifDigits.length < 9) {
+      return
+    }
+
+    viesDebounceId.value = window.setTimeout(() => {
+      void fetchViesData(nifDigits)
+    }, 500)
+  },
+)
+
+onBeforeUnmount(() => {
+  if (viesDebounceId.value != null) {
+    window.clearTimeout(viesDebounceId.value)
+  }
+})
 </script>
 
 <template>
@@ -371,7 +456,7 @@ watch(
           <FormControl>
             <Input
               v-bind="componentField"
-              :disabled="pageLoading || submitLoading || nifChecking"
+              :disabled="pageLoading || submitLoading || nifChecking || viesLoading"
               type="text"
               maxlength="20"
               @blur="onNifBlur"
@@ -509,7 +594,7 @@ watch(
               <Checkbox
                 :checked="Boolean(value)"
                 :disabled="pageLoading || submitLoading"
-                @update:checked="handleChange"
+                @update:checked="(checkedValue: boolean) => handleChange(checkedValue)"
               />
             </FormControl>
             <FormLabel>Cliente</FormLabel>
@@ -523,7 +608,7 @@ watch(
               <Checkbox
                 :checked="Boolean(value)"
                 :disabled="pageLoading || submitLoading"
-                @update:checked="handleChange"
+                @update:checked="(checkedValue: boolean) => handleChange(checkedValue)"
               />
             </FormControl>
             <FormLabel>Fornecedor</FormLabel>

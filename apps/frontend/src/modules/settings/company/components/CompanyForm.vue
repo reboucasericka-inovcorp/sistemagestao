@@ -4,25 +4,36 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
-  createCompany,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import {
   getCompany,
   updateCompany,
 } from '@/modules/settings/company/services/companyService'
 import type { Company, UpsertCompanyPayload } from '@/modules/settings/company/types/company'
+import { listCountriesResult } from '@/modules/settings/countries/services/countryService'
+import type { Country } from '@/modules/settings/countries/types/country'
 
 const pageLoading = ref(false)
 const submitLoading = ref(false)
-const hasExistingCompany = ref(false)
 const feedbackMessage = ref('')
 const feedbackKind = ref<'success' | 'error' | ''>('')
 const logoPreviewUrl = ref<string | null>(null)
 const logoFile = ref<File | null>(null)
+const countryOptions = ref<Country[]>([])
 
 const companySchema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório'),
+  tax_number: z.string().trim().min(1, 'NIF é obrigatório'),
   address: z.string().trim().optional(),
   postal_code: z
     .string()
@@ -30,7 +41,20 @@ const companySchema = z.object({
     .regex(/^\d{4}-\d{3}$/, 'Código postal deve seguir o formato XXXX-XXX')
     .or(z.literal('')),
   city: z.string().trim().optional(),
-  tax_number: z.string().trim().min(1, 'NIF é obrigatório'),
+  country_id: z.string().optional(),
+  phone: z.string().trim().optional(),
+  mobile: z.string().trim().optional(),
+  email: z
+    .string()
+    .trim()
+    .email('Email inválido')
+    .or(z.literal('')),
+  website: z
+    .string()
+    .trim()
+    .url('Website inválido (ex.: https://empresa.pt)')
+    .or(z.literal('')),
+  is_active: z.boolean(),
 })
 
 type CompanyFormData = z.infer<typeof companySchema>
@@ -40,10 +64,16 @@ const defaultValues: CompanyFormData = {
   address: '',
   postal_code: '',
   city: '',
+  country_id: '',
+  phone: '',
+  mobile: '',
+  email: '',
+  website: '',
+  is_active: true,
   tax_number: '',
 }
 
-const { resetForm, setFieldValue, setErrors } = useForm<CompanyFormData>({
+const { setValues, setFieldValue, setErrors } = useForm<CompanyFormData>({
   validationSchema: toTypedSchema(companySchema),
   initialValues: defaultValues,
 })
@@ -57,14 +87,18 @@ function normalizePostalCode(raw: string): string {
 }
 
 function applyCompanyData(data: Company): void {
-  resetForm({
-    values: {
-      name: data.name ?? '',
-      address: data.address ?? '',
-      postal_code: data.postal_code ?? '',
-      city: data.city ?? '',
-      tax_number: data.tax_number ?? '',
-    },
+  setValues({
+    name: data.name ?? '',
+    address: data.address ?? '',
+    postal_code: data.postal_code ?? '',
+    city: data.city ?? '',
+    country_id: data.country_id ? String(data.country_id) : '',
+    phone: data.phone ?? '',
+    mobile: data.mobile ?? '',
+    email: data.email ?? '',
+    website: data.website ?? '',
+    is_active: data.is_active ?? true,
+    tax_number: data.tax_number ?? '',
   })
   logoPreviewUrl.value = data.logo_url ?? null
 }
@@ -86,6 +120,12 @@ function toPayload(values: CompanyFormData): UpsertCompanyPayload {
     address: values.address || null,
     postal_code: values.postal_code || null,
     city: values.city || null,
+    country_id: values.country_id ? Number(values.country_id) : null,
+    phone: values.phone || null,
+    mobile: values.mobile || null,
+    email: values.email || null,
+    website: values.website || null,
+    is_active: values.is_active,
     tax_number: values.tax_number,
     logo: logoFile.value,
   }
@@ -107,19 +147,42 @@ function applyLaravelValidationErrors(error: unknown): void {
     address: errors.address?.[0],
     postal_code: errors.postal_code?.[0],
     city: errors.city?.[0],
+    country_id: errors.country_id?.[0],
+    phone: errors.phone?.[0],
+    mobile: errors.mobile?.[0],
+    email: errors.email?.[0],
+    website: errors.website?.[0],
+    is_active: errors.is_active?.[0],
     tax_number: errors.tax_number?.[0],
   })
 }
 
+async function loadCountries(): Promise<void> {
+  const countriesResult = await listCountriesResult({ per_page: 500 })
+  countryOptions.value = countriesResult.data.filter((country) => country.is_active)
+}
+
 async function loadCompany(): Promise<void> {
+  console.log('[CompanyForm] loadCompany called')
   pageLoading.value = true
   try {
-    const company = await getCompany()
-    if (company) {
-      hasExistingCompany.value = true
-      applyCompanyData(company)
-    } else {
-      hasExistingCompany.value = false
+    const [companyResult, countriesResult] = await Promise.allSettled([getCompany(), loadCountries()])
+
+    if (companyResult.status === 'fulfilled' && companyResult.value) {
+      const company = companyResult.value
+      console.log('RAW API RESULT:', company)
+      const normalized = (company as Company & { data?: Company })?.data ?? company
+      console.log('NORMALIZED:', normalized)
+      applyCompanyData(normalized as Company)
+    }
+
+    if (countriesResult.status === 'rejected') {
+      feedbackKind.value = 'error'
+      feedbackMessage.value = 'Dados da empresa carregados, mas não foi possível carregar a lista de países.'
+    }
+
+    if (companyResult.status === 'rejected') {
+      throw companyResult.reason
     }
   } catch {
     feedbackKind.value = 'error'
@@ -136,8 +199,7 @@ async function onSubmit(values: CompanyFormData): Promise<void> {
   try {
     setErrors({})
     const payload = toPayload(values)
-    const saved = hasExistingCompany.value ? await updateCompany(payload) : await createCompany(payload)
-    hasExistingCompany.value = true
+    const saved = await updateCompany(payload)
     applyCompanyData(saved)
     logoFile.value = null
     feedbackKind.value = 'success'
@@ -167,22 +229,24 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="space-y-4">
     <h1>Configuração da empresa</h1>
 
-    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'error' : 'success'" class="feedback">
+    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'text-destructive' : 'text-green-700'" class="text-sm">
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as CompanyFormData)">
-      <FormItem>
-        <FormLabel>Logo</FormLabel>
-        <FormControl>
-          <Input type="file" accept="image/*" :disabled="pageLoading || submitLoading" @change="onLogoSelected" />
-        </FormControl>
-        <FormMessage />
-        <img v-if="logoPreviewUrl" :src="logoPreviewUrl" alt="Pré-visualização do logo" class="preview" />
-      </FormItem>
+    <Form class="grid gap-4" @submit="(values) => onSubmit(values as CompanyFormData)">
+      <div class="space-y-2">
+        <label class="text-sm font-medium leading-none">Logo</label>
+        <Input type="file" accept="image/*" :disabled="pageLoading || submitLoading" @change="onLogoSelected" />
+        <img
+          v-if="logoPreviewUrl"
+          :src="logoPreviewUrl"
+          alt="Pré-visualização do logo"
+          class="mt-2 max-w-60 rounded-md border border-border"
+        />
+      </div>
 
       <FormField v-slot="{ componentField }" name="name">
         <FormItem>
@@ -198,48 +262,131 @@ onBeforeUnmount(() => {
         <FormItem>
           <FormLabel>Morada</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
+            <Textarea v-bind="componentField" :disabled="pageLoading || submitLoading" />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ value }" name="postal_code">
-        <FormItem>
-          <FormLabel>Código Postal</FormLabel>
-          <FormControl>
-            <Input
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <FormField v-slot="{ value }" name="postal_code">
+          <FormItem>
+            <FormLabel>Código Postal</FormLabel>
+            <FormControl>
+              <Input
+                :model-value="value"
+                maxlength="8"
+                :disabled="pageLoading || submitLoading"
+                @update:model-value="setFieldValue('postal_code', normalizePostalCode(String($event)))"
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+
+        <FormField v-slot="{ componentField }" name="city">
+          <FormItem>
+            <FormLabel>Localidade</FormLabel>
+            <FormControl>
+              <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+
+        <FormField v-slot="{ value, handleChange }" name="country_id">
+          <FormItem>
+            <FormLabel>País</FormLabel>
+            <Select
               :model-value="value"
-              maxlength="8"
               :disabled="pageLoading || submitLoading"
-              @update:model-value="setFieldValue('postal_code', normalizePostalCode(String($event)))"
+              @update:model-value="(rawValue) => handleChange(String(rawValue ?? ''))"
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem v-for="country in countryOptions" :key="country.id" :value="String(country.id)">
+                  {{ country.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <FormField v-slot="{ componentField }" name="phone">
+          <FormItem>
+            <FormLabel>Telefone</FormLabel>
+            <FormControl>
+              <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+
+        <FormField v-slot="{ componentField }" name="mobile">
+          <FormItem>
+            <FormLabel>Telemóvel</FormLabel>
+            <FormControl>
+              <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+
+        <FormField v-slot="{ componentField }" name="email">
+          <FormItem>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input v-bind="componentField" type="email" :disabled="pageLoading || submitLoading" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <FormField v-slot="{ componentField }" name="website">
+          <FormItem>
+            <FormLabel>Website</FormLabel>
+            <FormControl>
+              <Input v-bind="componentField" placeholder="https://empresa.pt" :disabled="pageLoading || submitLoading" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+
+        <FormField v-slot="{ componentField }" name="tax_number">
+          <FormItem>
+            <FormLabel>NIF</FormLabel>
+            <FormControl>
+              <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+      </div>
+
+      <FormField v-slot="{ value, handleChange }" name="is_active">
+        <FormItem class="flex items-center gap-2">
+          <FormControl>
+            <Checkbox
+              :checked="Boolean(value)"
+              :disabled="pageLoading || submitLoading"
+              @update:checked="handleChange"
             />
           </FormControl>
+          <FormLabel>Ativa</FormLabel>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="city">
-        <FormItem>
-          <FormLabel>Localidade</FormLabel>
-          <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      </FormField>
-
-      <FormField v-slot="{ componentField }" name="tax_number">
-        <FormItem>
-          <FormLabel>NIF</FormLabel>
-          <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      </FormField>
-
-      <div class="footer">
+      <div class="flex items-center justify-end gap-2 pt-2">
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
         </Button>
@@ -247,46 +394,3 @@ onBeforeUnmount(() => {
     </Form>
   </div>
 </template>
-
-<style scoped>
-.page {
-  margin: 0 auto;
-  max-width: 42rem;
-}
-
-h1 {
-  margin-top: 0;
-  text-align: left;
-}
-
-.feedback {
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.success {
-  color: #166534;
-}
-
-.error {
-  color: #b91c1c;
-}
-
-.form {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.preview {
-  margin-top: 0.5rem;
-  max-width: 240px;
-  border-radius: 0.5rem;
-  border: 1px solid hsl(var(--border));
-}
-
-.footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
-}
-</style>

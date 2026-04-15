@@ -4,6 +4,7 @@ import type { Company, UpsertCompanyPayload } from '../types/company'
 
 function buildCompanyFormData(payload: UpsertCompanyPayload): FormData {
   const formData = new FormData()
+  formData.append('_method', 'PUT')
   formData.append('name', payload.name)
   formData.append('tax_number', payload.tax_number)
 
@@ -16,6 +17,22 @@ function buildCompanyFormData(payload: UpsertCompanyPayload): FormData {
   if (payload.city) {
     formData.append('city', payload.city)
   }
+  if (payload.country_id) {
+    formData.append('country_id', String(payload.country_id))
+  }
+  if (payload.phone) {
+    formData.append('phone', payload.phone)
+  }
+  if (payload.mobile) {
+    formData.append('mobile', payload.mobile)
+  }
+  if (payload.email) {
+    formData.append('email', payload.email)
+  }
+  if (payload.website) {
+    formData.append('website', payload.website)
+  }
+  formData.append('is_active', payload.is_active ? '1' : '0')
   if (payload.logo) {
     formData.append('logo', payload.logo)
   }
@@ -24,34 +41,12 @@ function buildCompanyFormData(payload: UpsertCompanyPayload): FormData {
 }
 
 export async function getCompany(): Promise<Company | null> {
-  try {
-    const response = await api.get(API_ROUTES.company)
-    return (response.data?.data ?? response.data) as Company
-  } catch (error: unknown) {
-    const status =
-      typeof error === 'object' && error && 'response' in error
-        ? (error as { response?: { status?: number } }).response?.status
-        : undefined
-    if (status === 404) {
-      return null
-    }
-    throw error
-  }
-}
-
-export async function createCompany(payload: UpsertCompanyPayload): Promise<Company> {
-  const response = await api.post(API_ROUTES.company, buildCompanyFormData(payload), {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  })
-  return (response.data?.data ?? response.data) as Company
+  const response = await api.get(API_ROUTES.company)
+  return (response.data?.data ?? response.data) as Company | null
 }
 
 export async function updateCompany(payload: UpsertCompanyPayload): Promise<Company> {
-  const formData = buildCompanyFormData(payload)
-  formData.append('_method', 'PUT')
-  const response = await api.post(API_ROUTES.company, formData, {
+  const response = await api.post(API_ROUTES.company, buildCompanyFormData(payload), {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

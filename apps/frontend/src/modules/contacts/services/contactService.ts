@@ -1,10 +1,11 @@
 import api from '@/shared/services/api'
+import { API_ROUTES } from '@/core/api/apiRoutes'
+import { normalizeListResponse } from '@/core/utils/normalizeResponse'
 import type { Contact } from '../types/contact'
 
 export type ListContactsQuery = {
   entity_id?: number
-  contact_function_id?: number
-  active_only?: boolean
+  is_active?: boolean
   search?: string
   page?: number
   per_page?: number
@@ -23,56 +24,33 @@ export type ListContactsResult = {
 }
 
 function normalizeListContactsResponse(payload: unknown): ListContactsResult {
-  if (Array.isArray(payload)) {
-    return {
-      data: payload as Contact[],
-      meta: {
-        current_page: 1,
-        per_page: payload.length || 15,
-        total: payload.length,
-        last_page: 1,
-      },
-    }
+  const normalized = normalizeListResponse(payload) as {
+    data: Contact[]
+    meta?: Partial<ContactsListMeta> | null
   }
-
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    const paginated = payload as {
-      data?: Contact[]
-      current_page?: number
-      per_page?: number
-      total?: number
-      last_page?: number
-    }
-    const data = Array.isArray(paginated.data) ? paginated.data : []
-    return {
-      data,
-      meta: {
-        current_page: paginated.current_page ?? 1,
-        per_page: paginated.per_page ?? (data.length || 15),
-        total: paginated.total ?? data.length,
-        last_page: paginated.last_page ?? 1,
-      },
-    }
-  }
-
+  const data = normalized.data
   return {
-    data: [],
-    meta: { current_page: 1, per_page: 15, total: 0, last_page: 1 },
+    data,
+    meta: {
+      current_page: normalized.meta?.current_page ?? 1,
+      per_page: normalized.meta?.per_page ?? (data.length || 15),
+      total: normalized.meta?.total ?? data.length,
+      last_page: normalized.meta?.last_page ?? 1,
+    },
   }
 }
 
 export async function listContactsResult(query?: ListContactsQuery): Promise<ListContactsResult> {
-  const response = await api.get('/contacts', {
+  const response = await api.get(API_ROUTES.contacts, {
     params: {
       ...(query?.entity_id != null ? { entity_id: query.entity_id } : {}),
-      ...(query?.contact_function_id != null ? { contact_function_id: query.contact_function_id } : {}),
-      ...(query?.active_only ? { active_only: 1 } : {}),
+      ...(query?.is_active != null ? { is_active: query.is_active } : {}),
       ...(query?.search ? { search: query.search } : {}),
       ...(query?.page ? { page: query.page } : {}),
       ...(query?.per_page ? { per_page: query.per_page } : {}),
     },
   })
-  return normalizeListContactsResponse(response.data.data)
+  return normalizeListContactsResponse(response.data)
 }
 
 export async function listContacts(query?: ListContactsQuery): Promise<Contact[]> {
@@ -82,33 +60,35 @@ export async function listContacts(query?: ListContactsQuery): Promise<Contact[]
 
 export type UpsertContactPayload = {
   entity_id: number
-  contact_function_id: number
-  name: string
+  contact_function_id?: number | null
+  first_name: string
+  last_name: string
   email?: string | null
   phone?: string | null
   mobile?: string | null
+  rgpd_consent: boolean
   notes?: string | null
   is_active: boolean
 }
 
 export async function getContactById(id: number): Promise<Contact> {
-  const response = await api.get(`/contacts/${id}`)
-  return response.data.data as Contact
+  const response = await api.get(`${API_ROUTES.contacts}/${id}`)
+  return (response.data?.data ?? response.data) as Contact
 }
 
 export async function createContact(payload: UpsertContactPayload): Promise<Contact> {
-  const response = await api.post('/contacts', payload)
-  return response.data.data as Contact
+  const response = await api.post(API_ROUTES.contacts, payload)
+  return (response.data?.data ?? response.data) as Contact
 }
 
 export async function updateContact(id: number, payload: Partial<UpsertContactPayload>): Promise<Contact> {
-  const response = await api.put(`/contacts/${id}`, payload)
-  return response.data.data as Contact
+  const response = await api.put(`${API_ROUTES.contacts}/${id}`, payload)
+  return (response.data?.data ?? response.data) as Contact
 }
 
 export async function inactivateContact(id: number): Promise<Contact> {
-  const response = await api.delete(`/contacts/${id}`)
-  return response.data.data as Contact
+  const response = await api.delete(`${API_ROUTES.contacts}/${id}`)
+  return (response.data?.data ?? response.data) as Contact
 }
 
 export async function toggleContactStatus(id: number, isCurrentlyActive: boolean): Promise<Contact> {

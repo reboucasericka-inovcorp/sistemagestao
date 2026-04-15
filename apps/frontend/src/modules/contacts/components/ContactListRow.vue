@@ -10,8 +10,8 @@ defineProps<{
 <template>
   <li class="row">
     <div>
-      <span class="name">{{ contact.name }}</span>
-      <span class="sub">Entidade #{{ contact.entity_id }}</span>
+      <span class="name">{{ contact.full_name }}</span>
+      <span class="sub">Entidade {{ contact.entity?.name ?? '-' }}</span>
     </div>
     <ContactStatusBadge :is-active="contact.is_active" />
   </li>

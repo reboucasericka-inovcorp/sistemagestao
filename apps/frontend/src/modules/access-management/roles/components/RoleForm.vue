@@ -190,7 +190,7 @@ watch(
                 <Checkbox
                   :checked="matrix[moduleName][action]"
                   :disabled="pageLoading || submitLoading"
-                  @update:checked="(value) => togglePermission(moduleName, action, Boolean(value))"
+                  @update:checked="(value: boolean) => togglePermission(moduleName, action, value)"
                 />
               </td>
             </tr>

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { DataTable } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -10,20 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableEmpty,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { listEntities } from '@/modules/entities/services/entityService'
-import { listContactRoles, type ContactRole } from '@/modules/contacts/services/contactRoleService'
 import {
   listContactsResult,
-  toggleContactStatus,
   type ContactsListMeta,
 } from '@/modules/contacts/services/contactService'
 import type { Contact } from '@/modules/contacts/types/contact'
@@ -35,9 +26,7 @@ const emit = defineEmits<{
 
 const contacts = ref<Contact[]>([])
 const entities = ref<Array<{ id: number; name: string }>>([])
-const roles = ref<ContactRole[]>([])
 const loading = ref(false)
-const togglingId = ref<number | null>(null)
 const errorMessage = ref('')
 const searchText = ref('')
 const searchDebounced = ref('')
@@ -45,7 +34,6 @@ const debounceId = ref<number | null>(null)
 
 const filters = reactive({
   entityId: 0,
-  roleId: 0,
 })
 
 const pagination = reactive<ContactsListMeta>({
@@ -58,27 +46,29 @@ const pagination = reactive<ContactsListMeta>({
 const hasPreviousPage = computed(() => pagination.current_page > 1)
 const hasNextPage = computed(() => pagination.current_page < pagination.last_page)
 
-const tableContacts = computed(() => {
-  if (!filters.roleId) {
-    return contacts.value
-  }
-  return contacts.value.filter((contact) => (contact.contact_function_id ?? 0) === filters.roleId)
-})
+const tableColumns: ColumnDef<Record<string, unknown>, unknown>[] = [
+  { accessorKey: 'first_name', header: 'Nome' },
+  { accessorKey: 'last_name', header: 'Apelido' },
+  { accessorKey: 'function_name', header: 'Função' },
+  { accessorKey: 'entity_name', header: 'Entidade' },
+  { accessorKey: 'phone', header: 'Telefone' },
+  { accessorKey: 'mobile', header: 'Telemóvel' },
+  { accessorKey: 'email', header: 'Email' },
+]
 
-function getNameParts(contact: Contact): { firstName: string; lastName: string } {
-  const fullName = (contact.name ?? '').trim()
-  if (!fullName) {
-    return { firstName: '-', lastName: '-' }
-  }
-  const parts = fullName.split(/\s+/)
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: '-' }
-  }
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(' '),
-  }
-}
+const tableRows = computed<Record<string, unknown>[]>(() =>
+  contacts.value.map((contact) => ({
+    id: contact.id,
+    first_name: contact.first_name || '-',
+    last_name: contact.last_name || '-',
+    function_name: contact.function?.name || '-',
+    entity_name: contact.entity?.name || '-',
+    phone: contact.phone || '-',
+    mobile: contact.mobile || '-',
+    email: contact.email || '-',
+    is_active: contact.is_active,
+  })),
+)
 
 function queueSearch(value: string): void {
   searchText.value = value
@@ -92,9 +82,8 @@ function queueSearch(value: string): void {
 }
 
 async function loadFilterData(): Promise<void> {
-  const [entitiesList, rolesList] = await Promise.all([listEntities({ active_only: true }), listContactRoles()])
+  const entitiesList = await listEntities({ active_only: true })
   entities.value = entitiesList.map((entity) => ({ id: entity.id, name: entity.name }))
-  roles.value = rolesList
 }
 
 async function fetchContacts(): Promise<void> {
@@ -106,6 +95,7 @@ async function fetchContacts(): Promise<void> {
       per_page: pagination.per_page,
       search: searchDebounced.value || undefined,
       entity_id: filters.entityId || undefined,
+      is_active: true,
     })
     contacts.value = result.data
     pagination.current_page = result.meta.current_page
@@ -124,14 +114,12 @@ function goToEdit(contactId: number): void {
   void router.push({ name: 'contacts.edit', params: { id: contactId } })
 }
 
-async function onToggleStatus(contact: Contact): Promise<void> {
-  togglingId.value = contact.id
-  try {
-    await toggleContactStatus(contact.id, contact.is_active)
-    await fetchContacts()
-  } finally {
-    togglingId.value = null
+function onRowClick(row: Record<string, unknown>): void {
+  const id = Number(row.id)
+  if (Number.isNaN(id)) {
+    return
   }
+  goToEdit(id)
 }
 
 function goToPage(page: number): void {
@@ -145,13 +133,6 @@ watch(
   () => [pagination.current_page, pagination.per_page, searchDebounced.value, filters.entityId],
   () => {
     void fetchContacts()
-  },
-)
-
-watch(
-  () => filters.roleId,
-  () => {
-    pagination.current_page = 1
   },
 )
 
@@ -195,23 +176,6 @@ onBeforeUnmount(() => {
           </SelectContent>
         </Select>
         <Select
-          :model-value="filters.roleId ? String(filters.roleId) : '0'"
-          @update:model-value="
-            filters.roleId = Number($event);
-            pagination.current_page = 1
-          "
-        >
-          <SelectTrigger class="w-[200px]">
-            <SelectValue placeholder="Filtrar por função" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="0">Todas as funções</SelectItem>
-            <SelectItem v-for="role in roles" :key="role.id" :value="String(role.id)">
-              {{ role.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
           :model-value="String(pagination.per_page)"
           @update:model-value="
             pagination.per_page = Number($event);
@@ -237,50 +201,13 @@ onBeforeUnmount(() => {
       {{ errorMessage }}
     </div>
 
-    <div class="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Apelido</TableHead>
-            <TableHead>Função</TableHead>
-            <TableHead>Entidade</TableHead>
-            <TableHead>Telefone</TableHead>
-            <TableHead>Telemóvel</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead class="text-right">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableEmpty v-if="loading" :colspan="9">A carregar contactos...</TableEmpty>
-          <TableEmpty v-else-if="!tableContacts.length" :colspan="9">Nenhum contacto encontrado.</TableEmpty>
-          <TableRow v-for="contact in tableContacts" v-else :key="contact.id">
-            <TableCell>{{ getNameParts(contact).firstName }}</TableCell>
-            <TableCell>{{ getNameParts(contact).lastName }}</TableCell>
-            <TableCell>{{ contact.contactFunction?.name || '-' }}</TableCell>
-            <TableCell>{{ contact.entity?.name || '-' }}</TableCell>
-            <TableCell>{{ contact.phone || '-' }}</TableCell>
-            <TableCell>{{ contact.mobile || '-' }}</TableCell>
-            <TableCell>{{ contact.email || '-' }}</TableCell>
-            <TableCell>{{ contact.is_active ? 'Ativo' : 'Inativo' }}</TableCell>
-            <TableCell class="text-right">
-              <div class="flex justify-end gap-2">
-                <Button size="sm" variant="outline" :disabled="loading" @click="goToEdit(contact.id)">Editar</Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  :disabled="loading || togglingId === contact.id"
-                  @click="onToggleStatus(contact)"
-                >
-                  {{ contact.is_active ? 'Inativar' : 'Ativar' }}
-                </Button>
-              </div>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
+    <DataTable
+      :data="tableRows"
+      :columns="tableColumns"
+      :loading="loading"
+      empty-message="Nenhum contacto encontrado."
+      @row-click="onRowClick"
+    />
 
     <div class="flex items-center justify-between text-sm text-muted-foreground">
       <p>

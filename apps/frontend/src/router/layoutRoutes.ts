@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router'
 
 import { accessPermissionsRoutes } from '@/modules/access-management/permissions/routes'
 import { accessUsersRoutes } from '@/modules/access-management/users/routes'
+import { authProfileRoutes } from '@/modules/auth/profileRoutes'
 import { articlesRoutes } from '@/modules/settings/articles/routes'
 import { calendarRoutes } from '@/modules/calendar/routes'
 import { companyRoutes } from '@/modules/company/routes'
@@ -32,6 +33,7 @@ export const layoutChildren: RouteRecordRaw[] = [
   ...ordersRoutes,
   ...financeRoutes,
   ...calendarRoutes,
+  ...authProfileRoutes,
   ...accessUsersRoutes,
   ...accessPermissionsRoutes,
   ...settingsLogsRoutes,

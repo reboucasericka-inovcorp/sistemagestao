@@ -3,20 +3,21 @@
  */
 export type Contact = {
   id: number
-  number?: string | null
-  entity_id: number
-  contact_function_id?: number | null
-  name: string
-  email?: string | null
-  phone?: string | null
-  mobile?: string | null
-  notes?: string | null
+  number: string
+  first_name: string
+  last_name: string
+  full_name: string
+  email: string | null
+  phone: string | null
+  mobile: string | null
+  rgpd_consent: boolean
   is_active: boolean
+  notes?: string | null
   entity?: {
     id: number
     name: string
   } | null
-  contactFunction?: {
+  function?: {
     id: number
     name: string
   } | null

@@ -192,7 +192,7 @@ onBeforeUnmount(() => {
       <Select
         :model-value="filters.action"
         @update:model-value="
-          filters.action = String($event);
+          filters.action = (String($event) as '' | LogAction);
           pagination.current_page = 1
         "
       >

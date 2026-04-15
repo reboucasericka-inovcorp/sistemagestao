@@ -12,7 +12,7 @@ export const entityRoutes: RouteRecordRaw[] = [
   { path: 'suppliers', name: 'suppliers.list', component: SuppliersPage },
   { path: 'suppliers/new', name: 'suppliers.new', component: EntityForm },
   { path: 'suppliers/:id(\\d+)/edit', name: 'suppliers.edit', component: EntityForm },
-  { path: 'entities', name: 'entities.list', component: EntitiesList },
-  { path: 'entities/new', name: 'entities.new', component: EntityForm },
+  { path: 'entities', name: 'entities.list', component: EntitiesList, meta: { backofficeOnly: true } },
+  { path: 'entities/new', name: 'entities.new', component: EntityForm, meta: { backofficeOnly: true } },
   { path: 'entities/:id(\\d+)/edit', name: 'entities.edit', component: EntityForm },
 ]

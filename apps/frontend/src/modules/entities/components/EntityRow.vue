@@ -9,7 +9,9 @@ defineProps<{
 <template>
   <li class="row">
     <span class="name">{{ entity.name }}</span>
-    <span class="meta">{{ entity.type }}</span>
+    <span class="meta">
+      {{ entity.is_client ? 'Cliente' : '' }}{{ entity.is_client && entity.is_supplier ? ' · ' : '' }}{{ entity.is_supplier ? 'Fornecedor' : '' }}
+    </span>
   </li>
 </template>
 
@@ -29,6 +31,5 @@ defineProps<{
 .meta {
   font-size: 0.85rem;
   color: var(--text);
-  text-transform: capitalize;
 }
 </style>
