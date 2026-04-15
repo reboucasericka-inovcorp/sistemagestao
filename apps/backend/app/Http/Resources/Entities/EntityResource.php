@@ -9,9 +9,11 @@ class EntityResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isClient = (bool) $this->is_client;
+        $isSupplier = (bool) $this->is_supplier;
+
         return [
             'id' => $this->id,
-            'type' => $this->type,
             'number' => $this->number,
             'nif' => $this->nif,
             'name' => $this->name,
@@ -29,6 +31,11 @@ class EntityResource extends JsonResource
             'website' => $this->website,
             'email' => $this->email,
             'gdpr_consent' => (bool) $this->gdpr_consent,
+            'is_client' => $isClient,
+            'is_supplier' => $isSupplier,
+            'type' => $isClient && $isSupplier
+                ? 'both'
+                : ($isClient ? 'client' : ($isSupplier ? 'supplier' : null)),
             'notes' => $this->notes,
             'is_active' => (bool) $this->is_active,
             'created_at' => $this->created_at,

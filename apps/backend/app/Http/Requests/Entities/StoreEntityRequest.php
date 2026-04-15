@@ -15,7 +15,8 @@ class StoreEntityRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', Rule::in(['client', 'supplier', 'both'])],
+            'is_client' => ['required', 'boolean'],
+            'is_supplier' => ['required', 'boolean'],
             'nif' => ['required', 'string', 'max:20', Rule::unique('entities', 'nif')],
             'name' => ['required', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
@@ -30,5 +31,17 @@ class StoreEntityRequest extends FormRequest
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $isClient = filter_var($this->input('is_client'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            $isSupplier = filter_var($this->input('is_supplier'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+            if (! $isClient && ! $isSupplier) {
+                $validator->errors()->add('is_client', 'Selecione pelo menos Cliente ou Fornecedor.');
+            }
+        });
     }
 }

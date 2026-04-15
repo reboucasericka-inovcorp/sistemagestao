@@ -9,12 +9,12 @@ class ContactPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('contacts.view');
+        return $user->can('contacts.read');
     }
 
     public function view(User $user, ContactModel $contact): bool
     {
-        return $user->can('contacts.view');
+        return $user->can('contacts.read');
     }
 
     public function create(User $user): bool

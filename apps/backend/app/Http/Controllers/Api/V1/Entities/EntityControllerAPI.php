@@ -21,15 +21,7 @@ class EntityControllerAPI extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $entities = $this->service->paginate($request->only([
-            'search',
-            'type',
-            'active_only',
-            'page',
-            'per_page',
-            'sort',
-            'direction',
-        ]));
+        $entities = $this->service->paginate($request->all());
         $serializedItems = EntityResource::collection($entities->items())->resolve($request);
 
         return response()->json([

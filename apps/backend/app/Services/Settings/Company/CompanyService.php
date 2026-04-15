@@ -3,7 +3,6 @@
 namespace App\Services\Settings\Company;
 
 use App\Models\Settings\CompanyModel;
-use DomainException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -16,18 +15,14 @@ class CompanyService
         return CompanyModel::query()->first();
     }
 
-    public function create(array $data, ?UploadedFile $logo = null): CompanyModel
+    public function getCurrent(): CompanyModel
     {
-        if (CompanyModel::query()->exists()) {
-            throw new DomainException('Company already exists. Use update endpoint.');
-        }
-
-        return $this->persist(null, $data, $logo);
+        return CompanyModel::query()->firstOrFail();
     }
 
     public function update(array $data, ?UploadedFile $logo = null): CompanyModel
     {
-        $company = CompanyModel::query()->firstOrCreate([], $this->normalize($data));
+        $company = CompanyModel::query()->first();
 
         return $this->persist($company, $data, $logo);
     }
@@ -71,7 +66,17 @@ class CompanyService
     {
         $payload = $data;
 
-        foreach (['name', 'tax_number', 'address', 'postal_code', 'city'] as $field) {
+        foreach ([
+            'name',
+            'tax_number',
+            'address',
+            'postal_code',
+            'city',
+            'phone',
+            'mobile',
+            'email',
+            'website',
+        ] as $field) {
             if (array_key_exists($field, $payload) && is_string($payload[$field])) {
                 $payload[$field] = trim($payload[$field]);
             }

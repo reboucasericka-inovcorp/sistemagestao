@@ -15,7 +15,6 @@ class EntityModel extends Model
     protected $table = 'entities';
 
     protected $fillable = [
-        'type',
         'number',
         'nif',
         'name',
@@ -28,12 +27,16 @@ class EntityModel extends Model
         'website',
         'email',
         'gdpr_consent',
+        'is_client',
+        'is_supplier',
         'is_active',
         'notes',
     ];
 
     protected $casts = [
         'gdpr_consent' => 'boolean',
+        'is_client' => 'boolean',
+        'is_supplier' => 'boolean',
         'is_active' => 'boolean',
     ];
 
@@ -44,12 +47,12 @@ class EntityModel extends Model
 
     public function scopeClients(Builder $query): Builder
     {
-        return $query->whereIn('type', ['client', 'both']);
+        return $query->where('is_client', true);
     }
 
     public function scopeSuppliers(Builder $query): Builder
     {
-        return $query->whereIn('type', ['supplier', 'both']);
+        return $query->where('is_supplier', true);
     }
 
     public function setNifAttribute(?string $value): void

@@ -19,7 +19,8 @@ class UpdateEntityRequest extends FormRequest
         $entityId = $entity instanceof EntityModel ? $entity->getKey() : $entity;
 
         return [
-            'type' => ['sometimes', Rule::in(['client', 'supplier', 'both'])],
+            'is_client' => ['sometimes', 'boolean'],
+            'is_supplier' => ['sometimes', 'boolean'],
             'nif' => ['sometimes', 'string', 'max:20', Rule::unique('entities', 'nif')->ignore($entityId)],
             'name' => ['sometimes', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
@@ -34,5 +35,25 @@ class UpdateEntityRequest extends FormRequest
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $entity = $this->route('entity');
+            $currentIsClient = $entity instanceof EntityModel ? (bool) $entity->is_client : false;
+            $currentIsSupplier = $entity instanceof EntityModel ? (bool) $entity->is_supplier : false;
+
+            $isClient = $this->has('is_client')
+                ? filter_var($this->input('is_client'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                : $currentIsClient;
+            $isSupplier = $this->has('is_supplier')
+                ? filter_var($this->input('is_supplier'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                : $currentIsSupplier;
+
+            if (! $isClient && ! $isSupplier) {
+                $validator->errors()->add('is_client', 'Selecione pelo menos Cliente ou Fornecedor.');
+            }
+        });
     }
 }

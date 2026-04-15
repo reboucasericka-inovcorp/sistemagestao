@@ -9,12 +9,12 @@ class EntityPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('entities.view');
+        return $user->can('entities.read');
     }
 
     public function view(User $user, EntityModel $entity): bool
     {
-        return $user->can('entities.view');
+        return $user->can('entities.read');
     }
 
     public function create(User $user): bool

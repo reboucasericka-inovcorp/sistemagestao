@@ -13,11 +13,18 @@ class CompanyResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'tax_number' => $this->tax_number,
             'address' => $this->address,
             'postal_code' => $this->postal_code,
             'city' => $this->city,
-            'tax_number' => $this->tax_number,
-            'logo_url' => $this->logo_path ? Storage::url($this->logo_path) : null,
+            'country_id' => $this->country_id,
+            'phone' => $this->phone,
+            'mobile' => $this->mobile,
+            'email' => $this->email,
+            'website' => $this->website,
+            'is_active' => $this->is_active,
+            'logo' => $this->logo_path,
+            'logo_url' => $this->logo_path ? url(Storage::url($this->logo_path)) : null,
         ];
     }
 }

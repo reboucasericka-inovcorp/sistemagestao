@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use Laravel\Fortify\TwoFactorAuthenticatable;
 
 #[Fillable(['name', 'email', 'phone', 'password', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
@@ -24,6 +25,7 @@ class User extends Authenticatable
     use HasRoles;
     use HasApiTokens;
     use HasActivityLog;
+    use TwoFactorAuthenticatable;
 
     protected string $guard_name = 'sanctum';
 

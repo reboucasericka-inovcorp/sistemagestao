@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Access\Users\UserControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Articles\ArticleControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\CalendarActions\CalendarActionControllerAPI;
 use App\Http\Controllers\Api\V1\Entities\EntityControllerAPI;
+use App\Http\Controllers\Api\V1\Entities\ViesController;
 use App\Http\Controllers\Api\V1\Settings\CalendarTypes\CalendarTypeControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Company\CompanyControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\ContactFunctions\ContactFunctionControllerAPI;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Hash;
 
 Route::prefix('v1')->group(function (): void {
     // Rotas públicas (sem autenticação)
+    Route::get('company', [CompanyControllerAPI::class, 'show']);
+
     Route::post('/login', function (Request $request) {
         $request->validate([
             'email' => ['required', 'email'],
@@ -47,6 +50,19 @@ Route::prefix('v1')->group(function (): void {
 
     // Rotas protegidas (com autenticação)
     Route::middleware('auth:sanctum')->group(function (): void {
+        Route::get('me', function (Request $request) {
+            $user = $request->user();
+
+            return response()->json([
+                'message' => 'Utilizador autenticado carregado com sucesso.',
+                'data' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+            ]);
+        });
+
         Route::get('contacts', [ContactControllerAPI::class, 'index'])->middleware('permission:contacts.read');
         Route::get('contacts/{contact}', [ContactControllerAPI::class, 'show'])->middleware('permission:contacts.read');
         Route::post('contacts', [ContactControllerAPI::class, 'store'])->middleware('permission:contacts.create');
@@ -58,6 +74,7 @@ Route::prefix('v1')->group(function (): void {
             ->middlewareFor('store', 'permission:entities.create')
             ->middlewareFor('update', 'permission:entities.update')
             ->middlewareFor('destroy', 'permission:entities.delete');
+        Route::get('vies/{nif}', [ViesController::class, 'show'])->middleware('permission:entities.read');
 
         Route::get('countries', [CountryControllerAPI::class, 'index'])->middleware('permission:countries.read');
         Route::get('countries/{country}', [CountryControllerAPI::class, 'show'])->middleware('permission:countries.read');
@@ -101,8 +118,6 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('vat/{vat}', [VatControllerAPI::class, 'destroy'])->middleware('permission:vat.delete');
 
         Route::get('activity-logs', [LogControllerAPI::class, 'index'])->middleware('permission:logs.read');
-        Route::get('company', [CompanyControllerAPI::class, 'show'])->middleware('permission:company.read');
-        Route::post('company', [CompanyControllerAPI::class, 'store'])->middleware('permission:company.create');
         Route::put('company', [CompanyControllerAPI::class, 'update'])->middleware('permission:company.update');
 
         Route::get('users', [UserControllerAPI::class, 'index'])->middleware('permission:users.read');

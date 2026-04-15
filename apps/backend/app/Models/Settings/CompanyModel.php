@@ -13,11 +13,22 @@ class CompanyModel extends Model
 
     protected $fillable = [
         'name',
-        'logo_path',
+        'tax_number',
         'address',
         'postal_code',
         'city',
-        'tax_number',
+        'country_id',
+        'phone',
+        'mobile',
+        'email',
+        'website',
+        'logo_path',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'country_id' => 'integer',
+        'is_active' => 'boolean',
     ];
 
     protected function activityLogName(): string

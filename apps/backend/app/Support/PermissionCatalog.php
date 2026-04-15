@@ -31,7 +31,7 @@ class PermissionCatalog
      */
     public static function actions(): array
     {
-        return ['view', 'create', 'read', 'update', 'delete'];
+        return ['read', 'create', 'update', 'delete'];
     }
 
 }
