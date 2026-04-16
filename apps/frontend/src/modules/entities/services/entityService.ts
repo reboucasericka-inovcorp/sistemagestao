@@ -93,13 +93,6 @@ export async function toggleEntityStatus(id: number): Promise<Entity> {
   return (response.data?.data ?? response.data) as Entity
 }
 
-export async function checkEntityNif(nif: string): Promise<{ available: boolean }> {
-  const response = await api.get('/entities/check-nif', {
-    params: { nif },
-  })
-  return (response.data?.data ?? response.data) as { available: boolean }
-}
-
 export async function lookupEntityByVies(
   nif: string,
 ): Promise<{ name?: string; address?: string; valid: boolean }> {

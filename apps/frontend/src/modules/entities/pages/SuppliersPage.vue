@@ -41,7 +41,6 @@ const {
     </FormModal>
     <FormModal v-model:open="openEdit" title="Editar fornecedor">
       <EntityForm
-        v-if="editingId"
         mode="edit"
         :default-is-client="false"
         :default-is-supplier="true"

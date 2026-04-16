@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select'
 import { listRoles } from '@/modules/access-management/roles/services/roleService'
 import type { AccessRole } from '@/modules/access-management/roles/types/role'
+import { toast } from 'vue-sonner'
 import {
   createUser,
   getUserById,
@@ -65,21 +66,23 @@ const userSchema = z.object({
 })
 type UserFormData = z.infer<typeof userSchema>
 
-const { resetForm, setFieldValue, setErrors } = useForm<UserFormData>({
+const defaultValues: UserFormData = { name: '', email: '', phone: '', role_id: '', is_active: true }
+
+const { setValues, setFieldValue, setErrors, values } = useForm<UserFormData>({
   validationSchema: toTypedSchema(userSchema),
-  initialValues: { name: '', email: '', phone: '', role_id: '', is_active: true },
+  initialValues: defaultValues,
 })
 
-function applyBackendUser(payload: AccessUser): void {
-  resetForm({
-    values: {
-      name: payload.name,
-      email: payload.email,
-      phone: payload.phone ?? '',
-      role_id: payload.role?.id ? String(payload.role.id) : '',
-      is_active: payload.is_active,
-    },
+async function applyBackendUser(payload: AccessUser): Promise<void> {
+  await nextTick()
+  setValues({
+    name: payload.name ?? '',
+    email: payload.email ?? '',
+    phone: payload.phone ?? '',
+    role_id: payload.role?.id ? String(payload.role.id) : '',
+    is_active: payload.is_active ?? true,
   })
+  console.log('FORM VALUES:', values)
 }
 
 function toPayload(values: UserFormData): UpsertAccessUserPayload {
@@ -116,9 +119,12 @@ async function loadUserIfEditing(): Promise<void> {
     return
   }
   const user = await getUserById(userId.value)
-  applyBackendUser(user)
+  console.log('RAW API RESULT:', user)
+  const normalized = (user as AccessUser & { data?: AccessUser })?.data ?? user
+  console.log('NORMALIZED:', normalized)
+  await applyBackendUser(normalized as AccessUser)
 
-  if (user.role?.id && !roleOptions.value.some((role) => role.id === user.role?.id)) {
+  if (normalized.role?.id && !roleOptions.value.some((role) => role.id === normalized.role?.id)) {
     setFieldValue('role_id', '')
     feedbackKind.value = 'error'
     feedbackMessage.value =
@@ -135,6 +141,7 @@ async function onSubmit(values: UserFormData): Promise<void> {
     const payload = toPayload(values)
     if (isNew.value) {
       await createUser(payload)
+      toast.success('Utilizador criado. Email enviado para definição de senha.')
       if (props.mode === 'create') {
         emit('success')
       } else {
@@ -162,7 +169,12 @@ async function onSubmit(values: UserFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = async (submittedValues: UserFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
     const allRoles = await listRoles()
@@ -183,11 +195,14 @@ watch(
     feedbackKind.value = ''
     feedbackMessage.value = ''
     if (isNew.value) {
-      resetForm({ values: { name: '', email: '', phone: '', role_id: '', is_active: true } })
+      await nextTick()
+      setValues(defaultValues)
+      console.log('FORM VALUES:', values)
       return
     }
     await loadUserIfEditing()
   },
+  { immediate: true },
 )
 </script>
 
@@ -203,7 +218,7 @@ watch(
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as UserFormData)">
+    <Form class="form" @submit="submitWithValidation">
       <FormField v-slot="{ componentField }" name="name">
         <FormItem>
           <FormLabel>Nome</FormLabel>

@@ -5,6 +5,7 @@ import { accessUsersRoutes } from '@/modules/access-management/users/routes'
 import { authProfileRoutes } from '@/modules/auth/profileRoutes'
 import { articlesRoutes } from '@/modules/settings/articles/routes'
 import { calendarRoutes } from '@/modules/calendar/routes'
+import { clientOrdersRoutes } from '@/modules/client-orders/routes'
 import { companyRoutes } from '@/modules/company/routes'
 import { contactRoutes } from '@/modules/contacts/routes'
 import { calendarActionsRoutes } from '@/modules/settings/calendar-actions/routes'
@@ -18,6 +19,8 @@ import { settingsLogsRoutes } from '@/modules/settings/logs/routes'
 import { ordersRoutes } from '@/modules/orders/routes'
 import { proposalsRoutes } from '@/modules/proposals/routes'
 import { settingsRoutes } from '@/modules/settings/routes'
+import { supplierOrdersRoutes } from '@/modules/supplier-orders/routes'
+import { workOrdersRoutes } from '@/modules/work-orders/routes'
 import { vatRoutes } from '@/modules/settings/vat/routes'
 
 export const layoutChildren: RouteRecordRaw[] = [
@@ -30,6 +33,9 @@ export const layoutChildren: RouteRecordRaw[] = [
   ...countriesRoutes,
   ...articlesRoutes,
   ...proposalsRoutes,
+  ...clientOrdersRoutes,
+  ...supplierOrdersRoutes,
+  ...workOrdersRoutes,
   ...ordersRoutes,
   ...financeRoutes,
   ...calendarRoutes,

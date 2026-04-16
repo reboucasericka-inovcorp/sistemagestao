@@ -1,23 +1,39 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
 import { useForm } from 'vee-validate'
+
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
+
+// COMPONENTES UI (Shadcn)
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+
+// SERVICES
 import {
   createContact,
   getContactById,
   updateContact,
   type UpsertContactPayload,
 } from '@/modules/contacts/services/contactService'
+
 import type { Contact } from '@/modules/contacts/types/contact'
+
 import { listEntities } from '@/modules/entities/services/entityService'
 import type { Entity } from '@/modules/entities/types/entity'
+
 import { listContactFunctionsResult } from '@/modules/settings/contact-functions/services/contactFunctionService'
 
 type ContactFunctionOption = { id: number; name: string }
@@ -67,12 +83,13 @@ const defaultValues: ContactFormData = {
   is_active: true,
 }
 
-const { setValues } = useForm<ContactFormData>({
+const { setValues, values } = useForm<ContactFormData>({
   validationSchema: toTypedSchema(contactSchema),
   initialValues: defaultValues,
 })
 
-function applyBackendContact(payload: Contact): void {
+async function applyBackendContact(payload: Contact): Promise<void> {
+  await nextTick()
   setValues({
     number: payload.number ?? '',
     entity_id: payload.entity?.id ?? 0,
@@ -86,6 +103,7 @@ function applyBackendContact(payload: Contact): void {
     notes: payload.notes ?? '',
     is_active: payload.is_active ?? true,
   })
+  console.log('FORM VALUES:', values)
 }
 
 function toPayload(data: ContactFormData): UpsertContactPayload {
@@ -119,7 +137,7 @@ async function loadContactIfEditing(): Promise<void> {
   console.log('RAW API RESULT:', contact)
   const normalized = (contact as Contact & { data?: Contact })?.data ?? contact
   console.log('NORMALIZED:', normalized)
-  applyBackendContact(normalized as Contact)
+  await applyBackendContact(normalized as Contact)
 }
 
 async function onSubmit(submittedValues: ContactFormData): Promise<void> {
@@ -142,6 +160,12 @@ async function onSubmit(submittedValues: ContactFormData): Promise<void> {
     await updateContact(contactId.value, payload)
     feedbackKind.value = 'success'
     feedbackMessage.value = 'Contacto atualizado com sucesso.'
+    if (props.mode === 'create') {
+      emit('success')
+      return
+    }
+    await router.push('/contacts')
+    return
   } catch (error: unknown) {
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
@@ -154,10 +178,18 @@ async function onSubmit(submittedValues: ContactFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = async (formValues: ContactFormData) => {
+  await onSubmit(formValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
-    const [dependenciesLoad, contactLoad] = await Promise.allSettled([loadDependencies(), loadContactIfEditing()])
+    const [dependenciesLoad, contactLoad] = await Promise.allSettled([
+      loadDependencies(),
+      loadContactIfEditing(),
+    ])
 
     if (dependenciesLoad.status === 'rejected' && contactLoad.status === 'fulfilled') {
       feedbackKind.value = 'error'
@@ -180,16 +212,20 @@ onMounted(async () => {
   <div class="space-y-4">
     <h1>{{ isNew ? 'Novo contacto' : 'Editar contacto' }}</h1>
 
-    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'text-destructive' : 'text-green-700'" class="text-sm">
+    <p
+      v-if="feedbackMessage"
+      :class="feedbackKind === 'error' ? 'text-destructive' : 'text-green-700'"
+      class="text-sm"
+    >
       {{ feedbackMessage }}
     </p>
 
-    <Form class="grid gap-4" @submit="(formValues) => onSubmit(formValues as ContactFormData)">
-      <FormField v-slot="{ componentField }" name="number">
+    <Form class="grid gap-4" @submit="submitWithValidation">
+      <FormField v-slot="{ value, handleChange }" name="number">
         <FormItem>
           <FormLabel>Número</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" readonly :disabled="true" />
+            <Input :model-value="value" readonly :disabled="true" @update:model-value="handleChange" />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -198,7 +234,11 @@ onMounted(async () => {
       <FormField v-slot="{ value, handleChange }" name="entity_id">
         <FormItem>
           <FormLabel>Entidade</FormLabel>
-          <Select :model-value="String(value || '')" :disabled="pageLoading || submitLoading" @update:model-value="(selected) => handleChange(Number(selected))">
+          <Select
+            :model-value="String(value || '')"
+            :disabled="pageLoading || submitLoading"
+            @update:model-value="(selected) => handleChange(Number(selected))"
+          >
             <FormControl>
               <SelectTrigger><SelectValue placeholder="Selecione a entidade" /></SelectTrigger>
             </FormControl>
@@ -213,17 +253,27 @@ onMounted(async () => {
       </FormField>
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <FormField v-slot="{ componentField }" name="first_name">
+        <FormField v-slot="{ value, handleChange }" name="first_name">
           <FormItem>
             <FormLabel>Nome</FormLabel>
-            <FormControl><Input v-bind="componentField" :disabled="pageLoading || submitLoading" /></FormControl>
+            <FormControl
+              ><Input
+                :model-value="value"
+                :disabled="pageLoading || submitLoading"
+                @update:model-value="handleChange"
+            /></FormControl>
             <FormMessage />
           </FormItem>
         </FormField>
-        <FormField v-slot="{ componentField }" name="last_name">
+        <FormField v-slot="{ value, handleChange }" name="last_name">
           <FormItem>
             <FormLabel>Apelido</FormLabel>
-            <FormControl><Input v-bind="componentField" :disabled="pageLoading || submitLoading" /></FormControl>
+            <FormControl
+              ><Input
+                :model-value="value"
+                :disabled="pageLoading || submitLoading"
+                @update:model-value="handleChange"
+            /></FormControl>
             <FormMessage />
           </FormItem>
         </FormField>
@@ -232,7 +282,11 @@ onMounted(async () => {
       <FormField v-slot="{ value, handleChange }" name="contact_function_id">
         <FormItem>
           <FormLabel>Função</FormLabel>
-          <Select :model-value="String(value || 0)" :disabled="pageLoading || submitLoading" @update:model-value="(selected) => handleChange(Number(selected))">
+          <Select
+            :model-value="String(value || 0)"
+            :disabled="pageLoading || submitLoading"
+            @update:model-value="(selected) => handleChange(Number(selected))"
+          >
             <FormControl>
               <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
             </FormControl>
@@ -248,24 +302,40 @@ onMounted(async () => {
       </FormField>
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <FormField v-slot="{ componentField }" name="phone">
+        <FormField v-slot="{ value, handleChange }" name="phone">
           <FormItem>
             <FormLabel>Telefone</FormLabel>
-            <FormControl><Input v-bind="componentField" :disabled="pageLoading || submitLoading" /></FormControl>
+            <FormControl
+              ><Input
+                :model-value="value"
+                :disabled="pageLoading || submitLoading"
+                @update:model-value="handleChange"
+            /></FormControl>
             <FormMessage />
           </FormItem>
         </FormField>
-        <FormField v-slot="{ componentField }" name="mobile">
+        <FormField v-slot="{ value, handleChange }" name="mobile">
           <FormItem>
             <FormLabel>Telemóvel</FormLabel>
-            <FormControl><Input v-bind="componentField" :disabled="pageLoading || submitLoading" /></FormControl>
+            <FormControl
+              ><Input
+                :model-value="value"
+                :disabled="pageLoading || submitLoading"
+                @update:model-value="handleChange"
+            /></FormControl>
             <FormMessage />
           </FormItem>
         </FormField>
-        <FormField v-slot="{ componentField }" name="email">
+        <FormField v-slot="{ value, handleChange }" name="email">
           <FormItem>
             <FormLabel>Email</FormLabel>
-            <FormControl><Input v-bind="componentField" type="email" :disabled="pageLoading || submitLoading" /></FormControl>
+            <FormControl
+              ><Input
+                :model-value="value"
+                type="email"
+                :disabled="pageLoading || submitLoading"
+                @update:model-value="handleChange"
+            /></FormControl>
             <FormMessage />
           </FormItem>
         </FormField>
@@ -274,8 +344,14 @@ onMounted(async () => {
       <FormField v-slot="{ value, handleChange }" name="rgpd_consent">
         <FormItem>
           <FormLabel>Consentimento RGPD</FormLabel>
-          <Select :model-value="value ? '1' : '0'" :disabled="pageLoading || submitLoading" @update:model-value="(selected) => handleChange(selected === '1')">
-            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+          <Select
+            :model-value="value ? '1' : '0'"
+            :disabled="pageLoading || submitLoading"
+            @update:model-value="(selected) => handleChange(selected === '1')"
+          >
+            <FormControl
+              ><SelectTrigger><SelectValue /></SelectTrigger
+            ></FormControl>
             <SelectContent>
               <SelectItem value="1">Sim</SelectItem>
               <SelectItem value="0">Não</SelectItem>
@@ -288,8 +364,14 @@ onMounted(async () => {
       <FormField v-slot="{ value, handleChange }" name="is_active">
         <FormItem>
           <FormLabel>Estado</FormLabel>
-          <Select :model-value="value ? '1' : '0'" :disabled="pageLoading || submitLoading" @update:model-value="(selected) => handleChange(selected === '1')">
-            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+          <Select
+            :model-value="value ? '1' : '0'"
+            :disabled="pageLoading || submitLoading"
+            @update:model-value="(selected) => handleChange(selected === '1')"
+          >
+            <FormControl
+              ><SelectTrigger><SelectValue /></SelectTrigger
+            ></FormControl>
             <SelectContent>
               <SelectItem value="1">Ativo</SelectItem>
               <SelectItem value="0">Inativo</SelectItem>
@@ -299,16 +381,23 @@ onMounted(async () => {
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="notes">
+      <FormField v-slot="{ value, handleChange }" name="notes">
         <FormItem>
           <FormLabel>Observações</FormLabel>
-          <FormControl><Textarea v-bind="componentField" :disabled="pageLoading || submitLoading" /></FormControl>
+          <FormControl
+            ><Textarea
+              :model-value="value"
+              :disabled="pageLoading || submitLoading"
+              @update:model-value="handleChange"
+          /></FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
       <div class="flex items-center gap-2 pt-2">
-        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')"
+          >Cancelar</Button
+        >
         <RouterLink v-else to="/contacts" class="text-sm text-primary">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}

@@ -1,12 +1,25 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
 import { useForm } from 'vee-validate'
+
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
+
+// UI COMPONENTS (SHADCN)
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+
 import { Input } from '@/components/ui/input'
 
 import {
@@ -16,16 +29,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+
 import { Textarea } from '@/components/ui/textarea'
+
+// SERVICES
 import {
-  checkEntityNif,
   createEntity,
   getEntityById,
   lookupEntityByVies,
   updateEntity,
   type UpsertEntityPayload,
 } from '@/modules/entities/services/entityService'
+
 import type { Entity } from '@/modules/entities/types/entity'
+
 import { listCountriesResult } from '@/modules/settings/countries/services/countryService'
 import type { Country } from '@/modules/settings/countries/types/country'
 
@@ -39,7 +56,13 @@ const props = withDefaults(
     defaultIsClient?: boolean
     defaultIsSupplier?: boolean
   }>(),
-  { mode: undefined, recordId: null, open: undefined, defaultIsClient: undefined, defaultIsSupplier: undefined },
+  {
+    mode: undefined,
+    recordId: null,
+    open: undefined,
+    defaultIsClient: undefined,
+    defaultIsSupplier: undefined,
+  },
 )
 const emit = defineEmits<{
   (e: 'success'): void
@@ -49,10 +72,10 @@ const isNew = computed(() => {
   if (props.mode) return props.mode === 'create'
   return ['entities.new', 'clients.new', 'suppliers.new'].includes(String(route.name ?? ''))
 })
+const isFormOpen = computed(() => props.open ?? true)
 const entityId = computed(() => Number(props.recordId ?? route.params.id))
 const submitLoading = ref(false)
 const pageLoading = ref(false)
-const nifChecking = ref(false)
 const viesLoading = ref(false)
 const feedbackMessage = ref('')
 const feedbackKind = ref<'success' | 'error' | ''>('')
@@ -111,10 +134,11 @@ const defaultValues: EntityFormData = {
   notes: '',
 }
 
-const { setValues, setErrors, setFieldError, setFieldValue, values, handleSubmit } = useForm<EntityFormData>({
-  validationSchema: toTypedSchema(entitySchema),
-  initialValues: defaultValues,
-})
+const { setValues, setErrors, setFieldValue, values, handleSubmit } =
+  useForm<EntityFormData>({
+    validationSchema: toTypedSchema(entitySchema),
+    initialValues: defaultValues,
+  })
 
 function normalizePostalCode(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 7)
@@ -149,8 +173,9 @@ function setTypeDefaultsFromQuery(): void {
   setFieldValue('is_supplier', false)
 }
 
-function applyBackendEntity(payload: Entity): void {
-  setValues({
+async function applyBackendEntity(payload: Entity): Promise<void> {
+  await nextTick()
+  await setValues({
     nif: payload.nif ?? '',
     name: payload.name ?? '',
     address: payload.address ?? '',
@@ -167,6 +192,10 @@ function applyBackendEntity(payload: Entity): void {
     is_supplier: Boolean(payload.is_supplier),
     notes: payload.notes ?? '',
   })
+  await nextTick()
+  console.log('FORM VALUES:', values)
+  const nifSnapshot = values.nif
+  console.log('FORM VALUES SNAPSHOT nif (primitive):', nifSnapshot)
 }
 
 async function loadEntityIfEditing(): Promise<void> {
@@ -182,7 +211,7 @@ async function loadEntityIfEditing(): Promise<void> {
     console.log('RAW API RESULT:', data)
     const normalized = (data as Entity & { data?: Entity })?.data ?? data
     console.log('NORMALIZED:', normalized)
-    applyBackendEntity(normalized as Entity)
+    await applyBackendEntity(normalized as Entity)
   } catch {
     feedbackKind.value = 'error'
     feedbackMessage.value = 'Não foi possível carregar a entidade.'
@@ -191,9 +220,28 @@ async function loadEntityIfEditing(): Promise<void> {
   }
 }
 
-function resetForCreate(): void {
-  setValues({ ...defaultValues })
+async function resetForCreate(): Promise<void> {
+  await nextTick()
+  await setValues({
+    nif: defaultValues.nif,
+    name: defaultValues.name,
+    address: defaultValues.address,
+    postal_code: defaultValues.postal_code,
+    city: defaultValues.city,
+    country_id: defaultValues.country_id,
+    phone: defaultValues.phone,
+    mobile: defaultValues.mobile,
+    website: defaultValues.website,
+    email: defaultValues.email,
+    gdpr_consent: defaultValues.gdpr_consent,
+    is_active: defaultValues.is_active,
+    is_client: defaultValues.is_client,
+    is_supplier: defaultValues.is_supplier,
+    notes: defaultValues.notes,
+  })
+  await nextTick()
   setTypeDefaultsFromQuery()
+  console.log('FORM VALUES:', values)
 }
 
 async function onNifBlur(): Promise<void> {
@@ -203,18 +251,6 @@ async function onNifBlur(): Promise<void> {
   }
 
   setFieldValue('nif', nifDigits)
-  nifChecking.value = true
-  setFieldError('nif', undefined)
-  try {
-    const nifCheck = await checkEntityNif(nifDigits)
-    if (!nifCheck.available && isNew.value) {
-      setFieldError('nif', 'NIF já está em uso.')
-      return
-    }
-  } catch {
-    // Endpoint pode ainda não existir. Não bloqueia o formulário.
-  }
-  nifChecking.value = false
 }
 
 async function fetchViesData(nifDigits: string): Promise<void> {
@@ -352,9 +388,11 @@ async function submitEntity(submittedValues: EntityFormData): Promise<void> {
   }
 }
 
-const submitWithValidation = handleSubmit(async (submittedValues) => {
-  await submitEntity(submittedValues as EntityFormData)
-})
+const submitWithValidation = async (submittedValues: EntityFormData) => {
+  await submitEntity(submittedValues)
+}
+
+const submitByEvent = handleSubmit(submitWithValidation)
 
 async function onSubmit(values?: EntityFormData): Promise<void> {
   if (values) {
@@ -362,49 +400,37 @@ async function onSubmit(values?: EntityFormData): Promise<void> {
     return
   }
 
-  await submitWithValidation()
+  await submitByEvent()
 }
 
 onMounted(async () => {
   pageLoading.value = true
   try {
-    const [countriesLoad, entityLoad] = await Promise.allSettled([
-      listCountriesResult({ per_page: 100 }),
-      loadEntityIfEditing(),
-    ])
-
-    if (countriesLoad.status === 'fulfilled') {
-      countryOptions.value = countriesLoad.value.data.filter((country) => country.is_active)
-    }
-
-    if (countriesLoad.status === 'rejected' && entityLoad.status === 'fulfilled') {
-      feedbackKind.value = 'error'
-      feedbackMessage.value = 'Entidade carregada, mas não foi possível carregar a lista de países.'
-    }
-
-    if (entityLoad.status === 'rejected') {
-      throw entityLoad.reason
-    }
+    const countriesLoad = await listCountriesResult({ per_page: 100 })
+    countryOptions.value = countriesLoad.data.filter((country) => country.is_active)
   } catch {
     feedbackKind.value = 'error'
-    feedbackMessage.value = 'Não foi possível carregar dados da entidade.'
+    feedbackMessage.value = 'Não foi possível carregar a lista de países.'
   } finally {
     pageLoading.value = false
   }
 })
 
 watch(
-  () => props.open,
-  async (isOpen) => {
+  [isFormOpen, entityId, isNew],
+  async ([isOpen, currentEntityId, currentIsNew]) => {
     if (!isOpen) return
     feedbackKind.value = ''
     feedbackMessage.value = ''
-    if (isNew.value) {
-      resetForCreate()
+    if (currentIsNew) {
+      await resetForCreate()
       return
     }
+    if (Number.isNaN(currentEntityId)) return
+    await nextTick()
     await loadEntityIfEditing()
   },
+  { immediate: true },
 )
 
 watch(
@@ -437,26 +463,27 @@ onBeforeUnmount(() => {
     <h1>{{ isNew ? 'Nova entidade' : 'Editar entidade' }}</h1>
 
     <p
-      v-if="feedbackMessage"
+      v-show="feedbackMessage"
       :class="feedbackKind === 'error' ? 'error' : 'success'"
       class="feedback"
     >
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as EntityFormData)">
+    <Form class="form" @submit="submitWithValidation">
       <div class="number-hint">
         <label>Número (incremental)</label>
         <Input value="Será gerado automaticamente após salvar" disabled />
       </div>
 
-      <FormField v-slot="{ componentField }" name="nif">
+      <FormField v-slot="{ value, handleChange }" name="nif">
         <FormItem>
           <FormLabel>NIF</FormLabel>
           <FormControl>
             <Input
-              v-bind="componentField"
-              :disabled="pageLoading || submitLoading || nifChecking || viesLoading"
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading || viesLoading"
               type="text"
               maxlength="20"
               @blur="onNifBlur"
@@ -466,37 +493,47 @@ onBeforeUnmount(() => {
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="name">
+      <FormField v-slot="{ value, handleChange }" name="name">
         <FormItem>
           <FormLabel>Nome</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" type="text" />
+            <Input
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading"
+              type="text"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="address">
+      <FormField v-slot="{ value, handleChange }" name="address">
         <FormItem>
           <FormLabel>Morada</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" type="text" />
+            <Input
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading"
+              type="text"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ value }" name="postal_code">
+      <FormField v-slot="{ value, handleChange }" name="postal_code">
         <FormItem>
           <FormLabel>Código Postal</FormLabel>
           <FormControl>
             <Input
-              :model-value="value"
+              :model-value="value as string"
               :disabled="pageLoading || submitLoading"
               type="text"
               maxlength="8"
               @update:model-value="
-                setFieldValue('postal_code', normalizePostalCode(String($event)))
+                (val) => setFieldValue('postal_code', normalizePostalCode(String(val)))
               "
             />
           </FormControl>
@@ -504,11 +541,16 @@ onBeforeUnmount(() => {
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="city">
+      <FormField v-slot="{ value, handleChange }" name="city">
         <FormItem>
           <FormLabel>Localidade</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" type="text" />
+            <Input
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading"
+              type="text"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -528,7 +570,11 @@ onBeforeUnmount(() => {
               </SelectTrigger>
             </FormControl>
             <SelectContent>
-              <SelectItem v-for="country in countryOptions" :key="country.id" :value="String(country.id)">
+              <SelectItem
+                v-for="country in countryOptions"
+                :key="country.id"
+                :value="String(country.id)"
+              >
                 {{ country.name }}
               </SelectItem>
             </SelectContent>
@@ -537,51 +583,75 @@ onBeforeUnmount(() => {
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="phone">
+      <FormField v-slot="{ value, handleChange }" name="phone">
         <FormItem>
           <FormLabel>Telefone</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" type="text" />
+            <Input
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading"
+              type="text"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="mobile">
+      <FormField v-slot="{ value, handleChange }" name="mobile">
         <FormItem>
           <FormLabel>Telemóvel</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" type="text" />
+            <Input
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading"
+              type="text"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="website">
+      <FormField v-slot="{ value, handleChange }" name="website">
         <FormItem>
           <FormLabel>Website</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" type="url" />
+            <Input
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading"
+              type="url"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="email">
+      <FormField v-slot="{ value, handleChange }" name="email">
         <FormItem>
           <FormLabel>Email</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" type="email" />
+            <Input
+              :model-value="value"
+              @update:model-value="handleChange"
+              :disabled="pageLoading || submitLoading"
+              type="email"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="notes">
+      <FormField v-slot="{ value, handleChange }" name="notes">
         <FormItem>
           <FormLabel>Observações</FormLabel>
           <FormControl>
-            <Textarea v-bind="componentField" :disabled="pageLoading || submitLoading" />
+            <Textarea
+              :model-value="value"
+              :disabled="pageLoading || submitLoading"
+              @update:model-value="handleChange"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -646,7 +716,9 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="footer">
-        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')"
+          >Cancelar</Button
+        >
         <RouterLink v-else to="/entities">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}
