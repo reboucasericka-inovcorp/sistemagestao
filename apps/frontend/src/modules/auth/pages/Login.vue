@@ -111,6 +111,8 @@ onMounted(() => {
             class="login-input"
           />
 
+          <RouterLink to="/forgot-password" class="forgot-password-link">Esqueci a senha</RouterLink>
+
           <button type="submit" class="login-submit" :disabled="loading">
             {{ loading ? 'Entrando...' : 'Entrar' }}
           </button>
@@ -311,6 +313,16 @@ onMounted(() => {
 .login-submit:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.forgot-password-link {
+  color: #93c5fd;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
 }
 
 .login-help {

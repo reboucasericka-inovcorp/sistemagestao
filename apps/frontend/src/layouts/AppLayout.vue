@@ -22,7 +22,7 @@ const navItems: NavItem[] = [
   { label: 'Calendário', to: '/calendar' },
   { label: 'Encomendas - Clientes', to: '/client-orders' },
   { label: 'Encomendas - Fornecedores', to: '/supplier-orders' },
-  { label: 'Ordens de Trabalho', to: '/settings' },
+  { label: 'Ordens de Trabalho', to: '/work-orders' },
   {
     label: 'Financeiro',
     children: [

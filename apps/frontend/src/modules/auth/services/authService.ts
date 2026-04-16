@@ -38,6 +38,21 @@ export async function completeTwoFactorLogin(payload: {
   return response.data
 }
 
+export async function sendPasswordResetLink(email: string): Promise<void> {
+  await fetchSanctumCsrfCookie()
+  await sanctumHttp.post('/forgot-password', { email })
+}
+
+export async function resetPassword(payload: {
+  token: string
+  email: string
+  password: string
+  password_confirmation: string
+}): Promise<void> {
+  await fetchSanctumCsrfCookie()
+  await sanctumHttp.post('/reset-password', payload)
+}
+
 export type AuthenticatedUser = {
   id: number
   name: string
