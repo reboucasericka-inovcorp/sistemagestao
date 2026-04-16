@@ -59,6 +59,7 @@ const pagination = reactive<ArticlesListMeta>({
 
 const hasPreviousPage = computed(() => pagination.current_page > 1)
 const hasNextPage = computed(() => pagination.current_page < pagination.last_page)
+const backendBaseUrl = (import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '')
 
 function formatCurrency(value: string): string {
   const parsedValue = Number(value)
@@ -73,6 +74,31 @@ function getVatPercentage(article: Article): string {
     return `${article.vat.rate}%`
   }
   return '-'
+}
+
+function getArticlePhotoSrc(article: Article): string {
+  const url = (article.photo_url ?? '').trim()
+  if (!url) {
+    return '/semfoto.png'
+  }
+
+  if (/^https?:\/\//i.test(url)) {
+    return url
+  }
+
+  if (url.startsWith('/')) {
+    return `${backendBaseUrl}${url}`
+  }
+
+  return `${backendBaseUrl}/${url}`
+}
+
+function onPhotoError(event: Event): void {
+  const target = event.target as HTMLImageElement
+  if (target.src.endsWith('/semfoto.png')) {
+    return
+  }
+  target.src = '/semfoto.png'
 }
 
 function queueSearch(value: string): void {
@@ -207,7 +233,7 @@ onBeforeUnmount(() => {
           <TableRow v-for="article in articles" v-else :key="article.id">
             <TableCell>{{ article.reference }}</TableCell>
             <TableCell>
-              <img :src="article.photo_url || '/placeholder.png'" alt="Foto do artigo" class="thumb" />
+              <img :src="getArticlePhotoSrc(article)" alt="Foto do artigo" class="thumb" @error="onPhotoError" />
             </TableCell>
             <TableCell>{{ article.name }}</TableCell>
             <TableCell>{{ article.description || '-' }}</TableCell>
@@ -250,10 +276,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .thumb {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3rem;
+  height: 3rem;
+  min-width: 3rem;
+  min-height: 3rem;
   object-fit: cover;
+  object-position: center;
   border-radius: 0.375rem;
   border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted));
 }
 </style>

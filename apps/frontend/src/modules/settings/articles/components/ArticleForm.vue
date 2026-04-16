@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -50,6 +50,7 @@ const feedbackKind = ref<'success' | 'error' | ''>('')
 const photoPreviewUrl = ref<string | null>(null)
 const photoFile = ref<File | null>(null)
 const vatOptions = ref<VatOption[]>([])
+const backendBaseUrl = (import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '')
 
 const articleSchema = z.object({
   reference: z.string().trim().min(1, 'Referência é obrigatória'),
@@ -75,26 +76,32 @@ const defaultValues: ArticleFormData = {
   is_active: true,
 }
 
-const { resetForm, setFieldValue, setErrors } = useForm<ArticleFormData>({
+const { setValues, setFieldValue, setErrors, values } = useForm<ArticleFormData>({
   validationSchema: toTypedSchema(articleSchema),
   initialValues: defaultValues,
 })
 
-function applyBackendArticle(payload: Article): void {
-  resetForm({
-    values: {
-      reference: payload.reference,
-      name: payload.name,
-      description: payload.description ?? '',
-      price: payload.price,
-      vat_id: payload.vat_id ?? 0,
-      notes: payload.notes ?? '',
-      is_active: payload.is_active,
-    },
+function resolvePhotoUrl(photoUrl?: string | null): string | null {
+  const value = (photoUrl ?? '').trim()
+  if (!value) return null
+  if (/^https?:\/\//i.test(value) || value.startsWith('blob:')) return value
+  if (value.startsWith('/')) return `${backendBaseUrl}${value}`
+  return `${backendBaseUrl}/${value}`
+}
+
+async function applyBackendArticle(payload: Article): Promise<void> {
+  await nextTick()
+  setValues({
+    reference: payload.reference ?? '',
+    name: payload.name ?? '',
+    description: payload.description ?? '',
+    price: payload.price ?? '0.00',
+    vat_id: payload.vat_id ?? 0,
+    notes: payload.notes ?? '',
+    is_active: payload.is_active ?? true,
   })
-  if (payload.photo_url) {
-    photoPreviewUrl.value = payload.photo_url
-  }
+  console.log('FORM VALUES:', values)
+  photoPreviewUrl.value = resolvePhotoUrl(payload.photo_url)
 }
 
 async function loadArticleIfEditing(): Promise<void> {
@@ -102,7 +109,10 @@ async function loadArticleIfEditing(): Promise<void> {
     return
   }
   const article = await getArticleById(articleId.value)
-  applyBackendArticle(article)
+  console.log('RAW API RESULT:', article)
+  const normalized = (article as Article & { data?: Article })?.data ?? article
+  console.log('NORMALIZED:', normalized)
+  await applyBackendArticle(normalized as Article)
 }
 
 function onPhotoSelected(event: Event): void {
@@ -188,7 +198,12 @@ async function onSubmit(submittedValues: ArticleFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = async (submittedValues: ArticleFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
     vatOptions.value = await listVatOptions()
@@ -208,13 +223,16 @@ watch(
     feedbackKind.value = ''
     feedbackMessage.value = ''
     if (isNew.value) {
-      resetForm({ values: { ...defaultValues } })
+      await nextTick()
+      setValues(defaultValues)
       photoFile.value = null
       photoPreviewUrl.value = null
+      console.log('FORM VALUES:', values)
       return
     }
     await loadArticleIfEditing()
   },
+  { immediate: true },
 )
 
 onBeforeUnmount(() => {
@@ -232,7 +250,7 @@ onBeforeUnmount(() => {
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as ArticleFormData)">
+    <Form class="form" @submit="submitWithValidation">
       <FormField v-slot="{ componentField }" name="reference">
         <FormItem>
           <FormLabel>Referência</FormLabel>
@@ -377,9 +395,13 @@ h1 {
 
 .preview {
   margin-top: 0.5rem;
-  max-width: 220px;
+  width: 11rem;
+  height: 11rem;
   border-radius: 0.5rem;
   border: 1px solid hsl(var(--border));
+  object-fit: cover;
+  object-position: center;
+  background: hsl(var(--muted));
 }
 
 .check-item {

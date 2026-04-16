@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { createVat, getVatById, updateVat, type UpsertVatPayload } from '@/modules/settings/vat/services/vatService'
+import {
+  createVat,
+  getVatById,
+  updateVat,
+  type UpsertVatPayload,
+} from '@/modules/settings/vat/services/vatService'
 import type { Vat } from '@/modules/settings/vat/types/vat'
 
 const route = useRoute()
@@ -47,7 +52,7 @@ const defaultValues: VatFormData = {
   is_active: true,
 }
 
-const { resetForm, setErrors, values } = useForm<VatFormData>({
+const { setValues, setErrors, values } = useForm<VatFormData>({
   validationSchema: toTypedSchema(vatSchema),
   initialValues: defaultValues,
 })
@@ -62,14 +67,14 @@ function normalizeRate(rawValue: unknown): number {
   return Number.isFinite(numeric) ? numeric : 0
 }
 
-function applyBackendVat(payload: Vat): void {
-  resetForm({
-    values: {
-      name: payload.name,
-      rate: payload.rate,
-      is_active: payload.is_active,
-    },
+async function applyBackendVat(payload: Vat): Promise<void> {
+  await nextTick()
+  setValues({
+    name: payload.name ?? '',
+    rate: payload.rate ?? 0,
+    is_active: payload.is_active ?? true,
   })
+  console.log('FORM VALUES:', values)
 }
 
 async function loadVatIfEditing(): Promise<void> {
@@ -77,7 +82,10 @@ async function loadVatIfEditing(): Promise<void> {
     return
   }
   const vat = await getVatById(vatId.value)
-  applyBackendVat(vat)
+  console.log('RAW API RESULT:', vat)
+  const normalized = (vat as Vat & { data?: Vat })?.data ?? vat
+  console.log('NORMALIZED:', normalized)
+  await applyBackendVat(normalized as Vat)
 }
 
 function toPayload(values: VatFormData): UpsertVatPayload {
@@ -95,8 +103,9 @@ function applyLaravelValidationErrors(error: unknown): void {
     return
   }
 
-  const errors = (error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }).response?.data
-    ?.errors
+  const errors = (
+    error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }
+  ).response?.data?.errors
   if (!errors) {
     return
   }
@@ -148,7 +157,12 @@ async function onSubmit(submittedValues: VatFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = async (submittedValues: VatFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
     await loadVatIfEditing()
@@ -167,11 +181,14 @@ watch(
     feedbackKind.value = ''
     feedbackMessage.value = ''
     if (isNew.value) {
-      resetForm({ values: { ...defaultValues } })
+      await nextTick()
+      setValues(defaultValues)
+      console.log('FORM VALUES:', values)
       return
     }
     await loadVatIfEditing()
   },
+  { immediate: true },
 )
 </script>
 
@@ -179,11 +196,15 @@ watch(
   <div class="page">
     <h1>{{ isNew ? 'Novo IVA' : 'Editar IVA' }}</h1>
 
-    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'error' : 'success'" class="feedback">
+    <p
+      v-if="feedbackMessage"
+      :class="feedbackKind === 'error' ? 'error' : 'success'"
+      class="feedback"
+    >
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as VatFormData)">
+    <Form class="form" @submit="submitWithValidation">
       <FormField v-slot="{ componentField }" name="name">
         <FormItem>
           <FormLabel>Nome</FormLabel>
@@ -227,7 +248,9 @@ watch(
       </FormField>
 
       <div class="footer">
-        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')"
+          >Cancelar</Button
+        >
         <RouterLink v-else to="/settings/vat">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}

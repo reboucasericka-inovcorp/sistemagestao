@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -28,7 +28,9 @@ const emit = defineEmits<{
   (e: 'success'): void
   (e: 'cancel'): void
 }>()
-const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'contact-functions.new'))
+const isNew = computed(() =>
+  props.mode ? props.mode === 'create' : route.name === 'contact-functions.new',
+)
 const contactFunctionId = computed(() => Number(route.params.id))
 
 const pageLoading = ref(false)
@@ -48,18 +50,18 @@ const defaultValues: ContactFunctionFormData = {
   is_active: true,
 }
 
-const { resetForm } = useForm<ContactFunctionFormData>({
+const { setValues, values } = useForm<ContactFunctionFormData>({
   validationSchema: toTypedSchema(contactFunctionSchema),
   initialValues: defaultValues,
 })
 
-function applyBackendContactFunction(payload: ContactFunction): void {
-  resetForm({
-    values: {
-      name: payload.name,
-      is_active: payload.is_active,
-    },
+async function applyBackendContactFunction(payload: ContactFunction): Promise<void> {
+  await nextTick()
+  setValues({
+    name: payload.name ?? '',
+    is_active: payload.is_active ?? true,
   })
+  console.log('FORM VALUES:', values)
 }
 
 async function loadContactFunctionIfEditing(): Promise<void> {
@@ -67,7 +69,11 @@ async function loadContactFunctionIfEditing(): Promise<void> {
     return
   }
   const contactFunction = await getContactFunctionById(contactFunctionId.value)
-  applyBackendContactFunction(contactFunction)
+  console.log('RAW API RESULT:', contactFunction)
+  const normalized =
+    (contactFunction as ContactFunction & { data?: ContactFunction })?.data ?? contactFunction
+  console.log('NORMALIZED:', normalized)
+  await applyBackendContactFunction(normalized as ContactFunction)
 }
 
 function toPayload(values: ContactFunctionFormData): UpsertContactFunctionPayload {
@@ -86,8 +92,10 @@ async function onSubmit(submittedValues: ContactFunctionFormData): Promise<void>
     if (isNew.value) {
       await createContactFunction(payload)
       if (props.mode === 'create') {
+        // Modal (home page)
         emit('success')
       } else {
+        // Página de rota: fechar/navegar de volta
         await router.push('/settings/contact-functions')
       }
       return
@@ -95,6 +103,12 @@ async function onSubmit(submittedValues: ContactFunctionFormData): Promise<void>
     await updateContactFunction(contactFunctionId.value, payload)
     feedbackKind.value = 'success'
     feedbackMessage.value = 'Função de contacto atualizada com sucesso.'
+    if (props.mode === 'edit') {
+      emit('success')
+    } else {
+      // Página de rota: fechar/navegar de volta
+      await router.push('/settings/contact-functions')
+    }
   } catch (error: unknown) {
     const maybeMessage =
       typeof error === 'object' && error && 'response' in error
@@ -107,7 +121,12 @@ async function onSubmit(submittedValues: ContactFunctionFormData): Promise<void>
   }
 }
 
+const submitWithValidation = async (submittedValues: ContactFunctionFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
     await loadContactFunctionIfEditing()
@@ -124,11 +143,15 @@ onMounted(async () => {
   <div class="page">
     <h1>{{ isNew ? 'Nova função de contacto' : 'Editar função de contacto' }}</h1>
 
-    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'error' : 'success'" class="feedback">
+    <p
+      v-if="feedbackMessage"
+      :class="feedbackKind === 'error' ? 'error' : 'success'"
+      class="feedback"
+    >
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as ContactFunctionFormData)">
+    <Form class="form" @submit="submitWithValidation">
       <FormField v-slot="{ componentField }" name="name">
         <FormItem>
           <FormLabel>Nome</FormLabel>
@@ -154,7 +177,9 @@ onMounted(async () => {
       </FormField>
 
       <div class="footer">
-        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')"
+          >Cancelar</Button
+        >
         <RouterLink v-else to="/settings/contact-functions">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}

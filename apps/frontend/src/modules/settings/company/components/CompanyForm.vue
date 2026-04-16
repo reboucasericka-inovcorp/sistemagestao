@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -15,10 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  getCompany,
-  updateCompany,
-} from '@/modules/settings/company/services/companyService'
+import { getCompany, updateCompany } from '@/modules/settings/company/services/companyService'
 import type { Company, UpsertCompanyPayload } from '@/modules/settings/company/types/company'
 import { listCountriesResult } from '@/modules/settings/countries/services/countryService'
 import type { Country } from '@/modules/settings/countries/types/country'
@@ -44,16 +48,8 @@ const companySchema = z.object({
   country_id: z.string().optional(),
   phone: z.string().trim().optional(),
   mobile: z.string().trim().optional(),
-  email: z
-    .string()
-    .trim()
-    .email('Email inválido')
-    .or(z.literal('')),
-  website: z
-    .string()
-    .trim()
-    .url('Website inválido (ex.: https://empresa.pt)')
-    .or(z.literal('')),
+  email: z.string().trim().email('Email inválido').or(z.literal('')),
+  website: z.string().trim().url('Website inválido (ex.: https://empresa.pt)').or(z.literal('')),
   is_active: z.boolean(),
 })
 
@@ -73,7 +69,7 @@ const defaultValues: CompanyFormData = {
   tax_number: '',
 }
 
-const { setValues, setFieldValue, setErrors } = useForm<CompanyFormData>({
+const { setValues, setFieldValue, setErrors, values } = useForm<CompanyFormData>({
   validationSchema: toTypedSchema(companySchema),
   initialValues: defaultValues,
 })
@@ -86,7 +82,8 @@ function normalizePostalCode(raw: string): string {
   return `${digits.slice(0, 4)}-${digits.slice(4)}`
 }
 
-function applyCompanyData(data: Company): void {
+async function applyCompanyData(data: Company): Promise<void> {
+  await nextTick()
   setValues({
     name: data.name ?? '',
     address: data.address ?? '',
@@ -100,6 +97,7 @@ function applyCompanyData(data: Company): void {
     is_active: data.is_active ?? true,
     tax_number: data.tax_number ?? '',
   })
+  console.log('FORM VALUES:', values)
   logoPreviewUrl.value = data.logo_url ?? null
 }
 
@@ -136,8 +134,9 @@ function applyLaravelValidationErrors(error: unknown): void {
     return
   }
 
-  const errors = (error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }).response?.data
-    ?.errors
+  const errors = (
+    error as { response?: { data?: { errors?: Record<string, string[] | undefined> } } }
+  ).response?.data?.errors
   if (!errors) {
     return
   }
@@ -166,19 +165,23 @@ async function loadCompany(): Promise<void> {
   console.log('[CompanyForm] loadCompany called')
   pageLoading.value = true
   try {
-    const [companyResult, countriesResult] = await Promise.allSettled([getCompany(), loadCountries()])
+    const [companyResult, countriesResult] = await Promise.allSettled([
+      getCompany(),
+      loadCountries(),
+    ])
 
     if (companyResult.status === 'fulfilled' && companyResult.value) {
       const company = companyResult.value
       console.log('RAW API RESULT:', company)
       const normalized = (company as Company & { data?: Company })?.data ?? company
       console.log('NORMALIZED:', normalized)
-      applyCompanyData(normalized as Company)
+      await applyCompanyData(normalized as Company)
     }
 
     if (countriesResult.status === 'rejected') {
       feedbackKind.value = 'error'
-      feedbackMessage.value = 'Dados da empresa carregados, mas não foi possível carregar a lista de países.'
+      feedbackMessage.value =
+        'Dados da empresa carregados, mas não foi possível carregar a lista de países.'
     }
 
     if (companyResult.status === 'rejected') {
@@ -200,7 +203,10 @@ async function onSubmit(values: CompanyFormData): Promise<void> {
     setErrors({})
     const payload = toPayload(values)
     const saved = await updateCompany(payload)
-    applyCompanyData(saved)
+    const normalized = (saved as Company & { data?: Company })?.data ?? saved
+    console.log('RAW API RESULT:', saved)
+    console.log('NORMALIZED:', normalized)
+    await applyCompanyData(normalized as Company)
     logoFile.value = null
     feedbackKind.value = 'success'
     feedbackMessage.value = 'Dados da empresa guardados com sucesso.'
@@ -217,8 +223,15 @@ async function onSubmit(values: CompanyFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = async (submittedValues: CompanyFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(() => {
-  void loadCompany()
+  void (async () => {
+    await nextTick()
+    await loadCompany()
+  })()
 })
 
 onBeforeUnmount(() => {
@@ -232,14 +245,23 @@ onBeforeUnmount(() => {
   <div class="space-y-4">
     <h1>Configuração da empresa</h1>
 
-    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'text-destructive' : 'text-green-700'" class="text-sm">
+    <p
+      v-if="feedbackMessage"
+      :class="feedbackKind === 'error' ? 'text-destructive' : 'text-green-700'"
+      class="text-sm"
+    >
       {{ feedbackMessage }}
     </p>
 
-    <Form class="grid gap-4" @submit="(values) => onSubmit(values as CompanyFormData)">
+    <Form class="grid gap-4" @submit="submitWithValidation">
       <div class="space-y-2">
         <label class="text-sm font-medium leading-none">Logo</label>
-        <Input type="file" accept="image/*" :disabled="pageLoading || submitLoading" @change="onLogoSelected" />
+        <Input
+          type="file"
+          accept="image/*"
+          :disabled="pageLoading || submitLoading"
+          @change="onLogoSelected"
+        />
         <img
           v-if="logoPreviewUrl"
           :src="logoPreviewUrl"
@@ -274,10 +296,12 @@ onBeforeUnmount(() => {
             <FormLabel>Código Postal</FormLabel>
             <FormControl>
               <Input
-                :model-value="value"
+                :model-value="value as string"
                 maxlength="8"
                 :disabled="pageLoading || submitLoading"
-                @update:model-value="setFieldValue('postal_code', normalizePostalCode(String($event)))"
+                @update:model-value="
+                  setFieldValue('postal_code', normalizePostalCode(String($event)))
+                "
               />
             </FormControl>
             <FormMessage />
@@ -308,7 +332,11 @@ onBeforeUnmount(() => {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem v-for="country in countryOptions" :key="country.id" :value="String(country.id)">
+                <SelectItem
+                  v-for="country in countryOptions"
+                  :key="country.id"
+                  :value="String(country.id)"
+                >
                   {{ country.name }}
                 </SelectItem>
               </SelectContent>
@@ -343,7 +371,11 @@ onBeforeUnmount(() => {
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" type="email" :disabled="pageLoading || submitLoading" />
+              <Input
+                v-bind="componentField"
+                type="email"
+                :disabled="pageLoading || submitLoading"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -355,7 +387,11 @@ onBeforeUnmount(() => {
           <FormItem>
             <FormLabel>Website</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="https://empresa.pt" :disabled="pageLoading || submitLoading" />
+              <Input
+                v-bind="componentField"
+                placeholder="https://empresa.pt"
+                :disabled="pageLoading || submitLoading"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>

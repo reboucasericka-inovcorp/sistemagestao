@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
   createCountry,
@@ -30,7 +37,9 @@ const emit = defineEmits<{
   (e: 'success'): void
   (e: 'cancel'): void
 }>()
-const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'countries.new'))
+const isNew = computed(() =>
+  props.mode ? props.mode === 'create' : route.name === 'countries.new',
+)
 const countryId = computed(() => Number(props.recordId ?? route.params.id))
 
 const pageLoading = ref(false)
@@ -52,19 +61,19 @@ const defaultValues: CountryFormData = {
   is_active: true,
 }
 
-const { resetForm, setErrors } = useForm<CountryFormData>({
+const { setValues, setErrors, values } = useForm<CountryFormData>({
   validationSchema: toTypedSchema(countrySchema),
   initialValues: defaultValues,
 })
 
-function applyBackendCountry(payload: Country): void {
-  resetForm({
-    values: {
-      name: payload.name,
-      code: payload.code ?? '',
-      is_active: payload.is_active,
-    },
+async function applyBackendCountry(payload: Country): Promise<void> {
+  await nextTick()
+  setValues({
+    name: payload.name ?? '',
+    code: payload.code ?? '',
+    is_active: payload.is_active ?? true,
   })
+  console.log('FORM VALUES:', values)
 }
 
 async function loadCountryIfEditing(): Promise<void> {
@@ -72,7 +81,10 @@ async function loadCountryIfEditing(): Promise<void> {
     return
   }
   const country = await getCountryById(countryId.value)
-  applyBackendCountry(country)
+  console.log('RAW API RESULT:', country)
+  const normalized = (country as Country & { data?: Country })?.data ?? country
+  console.log('NORMALIZED:', normalized)
+  await applyBackendCountry(normalized as Country)
 }
 
 function toPayload(values: CountryFormData): UpsertCountryPayload {
@@ -135,7 +147,12 @@ async function onSubmit(submittedValues: CountryFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = async (submittedValues: CountryFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
     await loadCountryIfEditing()
@@ -154,11 +171,14 @@ watch(
     feedbackKind.value = ''
     feedbackMessage.value = ''
     if (isNew.value) {
-      resetForm({ values: { ...defaultValues } })
+      await nextTick()
+      setValues(defaultValues)
+      console.log('FORM VALUES:', values)
       return
     }
     await loadCountryIfEditing()
   },
+  { immediate: true },
 )
 </script>
 
@@ -166,11 +186,15 @@ watch(
   <div class="page">
     <h1>{{ isNew ? 'Novo país' : 'Editar país' }}</h1>
 
-    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'error' : 'success'" class="feedback">
+    <p
+      v-if="feedbackMessage"
+      :class="feedbackKind === 'error' ? 'error' : 'success'"
+      class="feedback"
+    >
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as CountryFormData)">
+    <Form class="form" @submit="submitWithValidation">
       <FormField v-slot="{ componentField }" name="name">
         <FormItem>
           <FormLabel>Nome</FormLabel>
@@ -206,7 +230,9 @@ watch(
       </FormField>
 
       <div class="footer">
-        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')"
+          >Cancelar</Button
+        >
         <RouterLink v-else to="/settings/countries">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}

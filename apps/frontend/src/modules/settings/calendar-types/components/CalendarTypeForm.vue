@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
   createCalendarType,
@@ -30,7 +37,9 @@ const emit = defineEmits<{
   (e: 'success'): void
   (e: 'cancel'): void
 }>()
-const isNew = computed(() => (props.mode ? props.mode === 'create' : route.name === 'calendar-types.new'))
+const isNew = computed(() =>
+  props.mode ? props.mode === 'create' : route.name === 'calendar-types.new',
+)
 const calendarTypeId = computed(() => Number(props.recordId ?? route.params.id))
 
 const pageLoading = ref(false)
@@ -59,19 +68,19 @@ const defaultValues: CalendarTypeFormData = {
   is_active: true,
 }
 
-const { resetForm, setErrors } = useForm<CalendarTypeFormData>({
+const { setValues, setErrors, values } = useForm<CalendarTypeFormData>({
   validationSchema: toTypedSchema(calendarTypeSchema),
   initialValues: defaultValues,
 })
 
-function applyBackendCalendarType(payload: CalendarType): void {
-  resetForm({
-    values: {
-      name: payload.name,
-      color: payload.color ?? '',
-      is_active: payload.is_active,
-    },
+async function applyBackendCalendarType(payload: CalendarType): Promise<void> {
+  await nextTick()
+  setValues({
+    name: payload.name ?? '',
+    color: payload.color ?? '',
+    is_active: payload.is_active ?? true,
   })
+  console.log('FORM VALUES:', values)
 }
 
 async function loadCalendarTypeIfEditing(): Promise<void> {
@@ -79,7 +88,10 @@ async function loadCalendarTypeIfEditing(): Promise<void> {
     return
   }
   const calendarType = await getCalendarTypeById(calendarTypeId.value)
-  applyBackendCalendarType(calendarType)
+  console.log('RAW API RESULT:', calendarType)
+  const normalized = (calendarType as CalendarType & { data?: CalendarType })?.data ?? calendarType
+  console.log('NORMALIZED:', normalized)
+  await applyBackendCalendarType(normalized as CalendarType)
 }
 
 function toPayload(values: CalendarTypeFormData): UpsertCalendarTypePayload {
@@ -142,7 +154,12 @@ async function onSubmit(submittedValues: CalendarTypeFormData): Promise<void> {
   }
 }
 
+const submitWithValidation = async (submittedValues: CalendarTypeFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
     await loadCalendarTypeIfEditing()
@@ -161,11 +178,14 @@ watch(
     feedbackKind.value = ''
     feedbackMessage.value = ''
     if (isNew.value) {
-      resetForm({ values: { ...defaultValues } })
+      await nextTick()
+      setValues(defaultValues)
+      console.log('FORM VALUES:', values)
       return
     }
     await loadCalendarTypeIfEditing()
   },
+  { immediate: true },
 )
 </script>
 
@@ -173,44 +193,55 @@ watch(
   <div class="page">
     <h1>{{ isNew ? 'Novo tipo de calendário' : 'Editar tipo de calendário' }}</h1>
 
-    <p v-if="feedbackMessage" :class="feedbackKind === 'error' ? 'error' : 'success'" class="feedback">
+    <p
+      v-if="feedbackMessage"
+      :class="feedbackKind === 'error' ? 'error' : 'success'"
+      class="feedback"
+    >
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as CalendarTypeFormData)">
-      <FormField v-slot="{ componentField }" name="name">
+    <Form class="form" @submit="submitWithValidation">
+      <FormField v-slot="{ value, handleChange }" name="name">
         <FormItem>
           <FormLabel>Nome</FormLabel>
           <FormControl>
-            <Input v-bind="componentField" :disabled="pageLoading || submitLoading" />
+            <Input
+              :model-value="value"
+              :disabled="pageLoading || submitLoading"
+              @update:model-value="handleChange"
+            />
           </FormControl>
           <FormMessage />
         </FormItem>
       </FormField>
 
-      <FormField v-slot="{ componentField }" name="color">
+      <FormField v-slot="{ value, handleChange }" name="color">
         <FormItem>
           <FormLabel>Cor (hex)</FormLabel>
           <div class="color-row">
             <FormControl>
               <Input
-                v-bind="componentField"
+                :model-value="value"
                 placeholder="#FF0000"
                 :disabled="pageLoading || submitLoading"
                 class="flex-1"
+                @update:model-value="handleChange"
               />
             </FormControl>
             <Input
               type="color"
-              :model-value="hexPattern.test(componentField.modelValue ?? '') ? String(componentField.modelValue) : defaultPreviewColor"
+              :model-value="hexPattern.test(value ?? '') ? String(value) : defaultPreviewColor"
               :disabled="pageLoading || submitLoading"
               class="color-picker"
-              @update:model-value="(value) => componentField.onChange(String(value))"
+              @update:model-value="(value) => handleChange(String(value))"
             />
             <span
               class="color-preview"
-              :style="{ backgroundColor: hexPattern.test(componentField.modelValue ?? '') ? String(componentField.modelValue) : 'transparent' }"
-              :title="hexPattern.test(componentField.modelValue ?? '') ? String(componentField.modelValue) : 'Cor inválida'"
+              :style="{
+                backgroundColor: hexPattern.test(value ?? '') ? String(value) : 'transparent',
+              }"
+              :title="hexPattern.test(value ?? '') ? String(value) : 'Cor inválida'"
             />
           </div>
           <FormMessage />
@@ -232,7 +263,9 @@ watch(
       </FormField>
 
       <div class="footer">
-        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')">Cancelar</Button>
+        <Button v-if="props.mode" type="button" variant="outline" @click="emit('cancel')"
+          >Cancelar</Button
+        >
         <RouterLink v-else to="/settings/calendar-types">Cancelar</RouterLink>
         <Button :disabled="submitLoading || pageLoading" type="submit">
           {{ submitLoading ? 'A guardar...' : 'Guardar' }}

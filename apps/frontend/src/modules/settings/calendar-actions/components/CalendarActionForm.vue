@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -56,19 +56,19 @@ const defaultValues: CalendarActionFormData = {
   is_active: true,
 }
 
-const { resetForm, setErrors } = useForm<CalendarActionFormData>({
+const { setValues, setErrors, values } = useForm<CalendarActionFormData>({
   validationSchema: toTypedSchema(schema),
   initialValues: defaultValues,
 })
 
-function applyBackendCalendarAction(payload: CalendarAction): void {
-  resetForm({
-    values: {
-      name: payload.name,
-      calendar_type_id: payload.calendar_type_id ?? 0,
-      is_active: payload.is_active,
-    },
+async function applyBackendCalendarAction(payload: CalendarAction): Promise<void> {
+  await nextTick()
+  setValues({
+    name: payload.name ?? '',
+    calendar_type_id: payload.calendar_type_id ?? 0,
+    is_active: payload.is_active ?? true,
   })
+  console.log('FORM VALUES:', values)
 }
 
 async function loadCalendarActionIfEditing(): Promise<void> {
@@ -76,7 +76,10 @@ async function loadCalendarActionIfEditing(): Promise<void> {
     return
   }
   const calendarAction = await getCalendarActionById(calendarActionId.value)
-  applyBackendCalendarAction(calendarAction)
+  console.log('RAW API RESULT:', calendarAction)
+  const normalized = (calendarAction as CalendarAction & { data?: CalendarAction })?.data ?? calendarAction
+  console.log('NORMALIZED:', normalized)
+  await applyBackendCalendarAction(normalized as CalendarAction)
 }
 
 function toPayload(values: CalendarActionFormData): UpsertCalendarActionPayload {
@@ -139,7 +142,12 @@ async function onSubmit(submittedValues: CalendarActionFormData): Promise<void> 
   }
 }
 
+const submitWithValidation = async (submittedValues: CalendarActionFormData) => {
+  await onSubmit(submittedValues)
+}
+
 onMounted(async () => {
+  await nextTick()
   pageLoading.value = true
   try {
     calendarTypeOptions.value = await listCalendarTypeOptions()
@@ -159,11 +167,14 @@ watch(
     feedbackKind.value = ''
     feedbackMessage.value = ''
     if (isNew.value) {
-      resetForm({ values: { ...defaultValues } })
+      await nextTick()
+      setValues(defaultValues)
+      console.log('FORM VALUES:', values)
       return
     }
     await loadCalendarActionIfEditing()
   },
+  { immediate: true },
 )
 </script>
 
@@ -175,7 +186,7 @@ watch(
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="(values) => onSubmit(values as CalendarActionFormData)">
+    <Form class="form" @submit="submitWithValidation">
       <FormField v-slot="{ componentField }" name="name">
         <FormItem>
           <FormLabel>Nome</FormLabel>
