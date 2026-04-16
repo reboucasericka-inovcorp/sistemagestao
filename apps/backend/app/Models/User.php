@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\SetPasswordNotification;
 use App\Models\Concerns\HasActivityLog;
 use Illuminate\Database\Eloquent\Builder;
 use Laravel\Sanctum\HasApiTokens;
@@ -52,5 +53,10 @@ class User extends Authenticatable
     protected function activityLogName(): string
     {
         return 'users';
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify((new SetPasswordNotification($token))->locale('pt'));
     }
 }

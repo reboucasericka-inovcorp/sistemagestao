@@ -11,6 +11,7 @@ use App\Services\Access\Users\UserService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
 
 class UserControllerAPI extends Controller
 {
@@ -49,6 +50,9 @@ class UserControllerAPI extends Controller
     {
         try {
             $user = $this->service->create($request->validated());
+            Password::sendResetLink([
+                'email' => $user->email,
+            ]);
         } catch (DomainException $e) {
             return response()->json([
                 'message' => $e->getMessage(),

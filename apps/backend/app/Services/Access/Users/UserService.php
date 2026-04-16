@@ -57,9 +57,7 @@ class UserService
             $payload = $this->normalize($data);
             $roleId = (int) $payload['role_id'];
             unset($payload['role_id']);
-            $rawPassword = array_key_exists('password', $payload) && is_string($payload['password']) && trim($payload['password']) !== ''
-                ? trim($payload['password'])
-                : Str::password(12);
+            $rawPassword = Str::random(12);
             unset($payload['password']);
             $payload['password'] = Hash::make($rawPassword);
             $payload['is_active'] = $payload['is_active'] ?? true;

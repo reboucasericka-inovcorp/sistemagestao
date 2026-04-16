@@ -5,7 +5,10 @@ use App\Http\Controllers\Api\V1\Contacts\ContactControllerAPI;
 use App\Http\Controllers\Api\V1\Calendar\CalendarEventControllerAPI;
 use App\Http\Controllers\Api\V1\Access\Roles\RoleControllerAPI;
 use App\Http\Controllers\Api\V1\Access\Users\UserControllerAPI;
+use App\Http\Controllers\Api\V1\Orders\ClientOrderControllerAPI;
+use App\Http\Controllers\Api\V1\Orders\SupplierOrderControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Articles\ArticleControllerAPI;
+use App\Http\Controllers\Api\V1\WorkOrders\WorkOrderControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\CalendarActions\CalendarActionControllerAPI;
 use App\Http\Controllers\Api\V1\Entities\EntityControllerAPI;
 use App\Http\Controllers\Api\V1\Entities\ViesController;
@@ -14,6 +17,7 @@ use App\Http\Controllers\Api\V1\Settings\Company\CompanyControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\ContactFunctions\ContactFunctionControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Countries\CountryControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Logs\LogControllerAPI;
+use App\Http\Controllers\Api\V1\Proposals\ProposalControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Vat\VatControllerAPI;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -133,5 +137,30 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('roles/{role}', [RoleControllerAPI::class, 'destroy'])->middleware('permission:roles.delete');
         Route::get('roles-permissions-catalog', [RoleControllerAPI::class, 'permissionsCatalog'])
             ->middleware('permission:roles.read');
+
+        Route::get('proposals', [ProposalControllerAPI::class, 'index']);
+        Route::get('proposals/{id}', [ProposalControllerAPI::class, 'show']);
+        Route::post('proposals', [ProposalControllerAPI::class, 'store']);
+        Route::put('proposals/{id}', [ProposalControllerAPI::class, 'update']);
+        Route::post('proposals/{id}/convert', [ProposalControllerAPI::class, 'convert']);
+        Route::get('proposals/{id}/pdf', [ProposalControllerAPI::class, 'pdf']);
+
+        Route::get('client-orders', [ClientOrderControllerAPI::class, 'index']);
+        Route::get('client-orders/{id}', [ClientOrderControllerAPI::class, 'show']);
+        Route::post('client-orders', [ClientOrderControllerAPI::class, 'store']);
+        Route::put('client-orders/{id}', [ClientOrderControllerAPI::class, 'update']);
+        Route::post('client-orders/{id}/convert-suppliers', [ClientOrderControllerAPI::class, 'convert']);
+        Route::get('client-orders/{id}/pdf', [ClientOrderControllerAPI::class, 'pdf']);
+
+        Route::get('supplier-orders', [SupplierOrderControllerAPI::class, 'index']);
+        Route::get('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'show']);
+        Route::post('supplier-orders', [SupplierOrderControllerAPI::class, 'store']);
+        Route::put('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'update']);
+
+        Route::get('work-orders', [WorkOrderControllerAPI::class, 'index']);
+        Route::get('work-orders/{id}', [WorkOrderControllerAPI::class, 'show']);
+        Route::post('work-orders', [WorkOrderControllerAPI::class, 'store']);
+        Route::put('work-orders/{id}', [WorkOrderControllerAPI::class, 'update']);
+        Route::post('work-orders/from-client-order/{id}', [WorkOrderControllerAPI::class, 'convertFromClientOrder']);
     });
 });
