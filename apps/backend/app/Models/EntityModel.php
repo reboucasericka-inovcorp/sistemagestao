@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use Database\Factories\EntityFactory;
 use App\Models\Concerns\HasActivityLog;
 use App\Models\Settings\CountryModel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EntityModel extends Model
 {
+    use HasFactory;
     use HasActivityLog;
 
     protected $table = 'entities';
@@ -73,5 +76,10 @@ class EntityModel extends Model
     protected function activityLogName(): string
     {
         return 'entities';
+    }
+
+    protected static function newFactory(): EntityFactory
+    {
+        return EntityFactory::new();
     }
 }

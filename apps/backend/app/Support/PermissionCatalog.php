@@ -23,6 +23,8 @@ class PermissionCatalog
             'logs',
             'users',
             'roles',
+            'digital-files',
+            'supplier-invoices',
         ];
     }
 

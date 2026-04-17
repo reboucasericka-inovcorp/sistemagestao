@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\Contacts\ContactControllerAPI;
 use App\Http\Controllers\Api\V1\Calendar\CalendarEventControllerAPI;
 use App\Http\Controllers\Api\V1\Access\Roles\RoleControllerAPI;
 use App\Http\Controllers\Api\V1\Access\Users\UserControllerAPI;
+use App\Http\Controllers\Api\V1\Finance\SupplierInvoiceControllerAPI;
 use App\Http\Controllers\Api\V1\Orders\ClientOrderControllerAPI;
 use App\Http\Controllers\Api\V1\Orders\SupplierOrderControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Articles\ArticleControllerAPI;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Api\V1\WorkOrders\WorkOrderControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\CalendarActions\CalendarActionControllerAPI;
 use App\Http\Controllers\Api\V1\Entities\EntityControllerAPI;
 use App\Http\Controllers\Api\V1\Entities\ViesController;
+use App\Http\Controllers\Api\V1\DigitalArchive\DigitalFileControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\CalendarTypes\CalendarTypeControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Company\CompanyControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\ContactFunctions\ContactFunctionControllerAPI;
@@ -63,6 +65,7 @@ Route::prefix('v1')->group(function (): void {
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'permissions' => $user->getAllPermissions()->pluck('name')->values()->all(),
                 ],
             ]);
         });
@@ -157,10 +160,22 @@ Route::prefix('v1')->group(function (): void {
         Route::post('supplier-orders', [SupplierOrderControllerAPI::class, 'store']);
         Route::put('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'update']);
 
+        Route::get('supplier-invoices', [SupplierInvoiceControllerAPI::class, 'index'])->middleware('permission:supplier-invoices.read');
+        Route::get('supplier-invoices/{id}', [SupplierInvoiceControllerAPI::class, 'show'])->middleware('permission:supplier-invoices.read');
+        Route::post('supplier-invoices', [SupplierInvoiceControllerAPI::class, 'store'])->middleware('permission:supplier-invoices.create');
+        Route::put('supplier-invoices/{id}', [SupplierInvoiceControllerAPI::class, 'update'])->middleware('permission:supplier-invoices.update');
+        Route::delete('supplier-invoices/{id}', [SupplierInvoiceControllerAPI::class, 'destroy'])->middleware('permission:supplier-invoices.delete');
+        Route::get('supplier-invoices/{id}/files/{fileId}/download', [SupplierInvoiceControllerAPI::class, 'download'])->middleware('permission:supplier-invoices.read');
+
         Route::get('work-orders', [WorkOrderControllerAPI::class, 'index']);
         Route::get('work-orders/{id}', [WorkOrderControllerAPI::class, 'show']);
         Route::post('work-orders', [WorkOrderControllerAPI::class, 'store']);
         Route::put('work-orders/{id}', [WorkOrderControllerAPI::class, 'update']);
         Route::post('work-orders/from-client-order/{id}', [WorkOrderControllerAPI::class, 'convertFromClientOrder']);
+
+        Route::get('digital-files', [DigitalFileControllerAPI::class, 'index'])->middleware('permission:digital-files.read');
+        Route::post('digital-files', [DigitalFileControllerAPI::class, 'store'])->middleware('permission:digital-files.create');
+        Route::get('digital-files/{digitalFile}/download', [DigitalFileControllerAPI::class, 'download'])->middleware('permission:digital-files.read');
+        Route::delete('digital-files/{digitalFile}', [DigitalFileControllerAPI::class, 'destroy'])->middleware('permission:digital-files.delete');
     });
 });
