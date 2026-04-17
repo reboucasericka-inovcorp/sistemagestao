@@ -28,13 +28,44 @@ return new class extends Migration
         });
 
         if (Schema::hasColumn('contacts', 'name')) {
-            DB::statement("
-                UPDATE contacts
-                SET
-                    first_name = COALESCE(NULLIF(TRIM(SUBSTRING_INDEX(name, ' ', 1)), ''), 'N/A'),
-                    last_name = COALESCE(NULLIF(TRIM(SUBSTR(name, LENGTH(SUBSTRING_INDEX(name, ' ', 1)) + 1)), ''), 'N/A')
-                WHERE (first_name IS NULL OR first_name = '') OR (last_name IS NULL OR last_name = '')
-            ");
+            if (DB::getDriverName() === 'sqlite') {
+                $contactsWithName = DB::table('contacts')
+                    ->select(['id', 'name', 'first_name', 'last_name'])
+                    ->get();
+
+                foreach ($contactsWithName as $contact) {
+                    $currentFirstName = trim((string) ($contact->first_name ?? ''));
+                    $currentLastName = trim((string) ($contact->last_name ?? ''));
+                    if ($currentFirstName !== '' && $currentLastName !== '') {
+                        continue;
+                    }
+
+                    $name = trim((string) ($contact->name ?? ''));
+                    if ($name === '') {
+                        $firstName = 'N/A';
+                        $lastName = 'N/A';
+                    } else {
+                        $parts = preg_split('/\s+/', $name) ?: [];
+                        $firstName = trim((string) ($parts[0] ?? '')) ?: 'N/A';
+                        $lastName = trim(implode(' ', array_slice($parts, 1))) ?: 'N/A';
+                    }
+
+                    DB::table('contacts')
+                        ->where('id', $contact->id)
+                        ->update([
+                            'first_name' => $firstName,
+                            'last_name' => $lastName,
+                        ]);
+                }
+            } else {
+                DB::statement("
+                    UPDATE contacts
+                    SET
+                        first_name = COALESCE(NULLIF(TRIM(SUBSTRING_INDEX(name, ' ', 1)), ''), 'N/A'),
+                        last_name = COALESCE(NULLIF(TRIM(SUBSTR(name, LENGTH(SUBSTRING_INDEX(name, ' ', 1)) + 1)), ''), 'N/A')
+                    WHERE (first_name IS NULL OR first_name = '') OR (last_name IS NULL OR last_name = '')
+                ");
+            }
         } else {
             DB::table('contacts')
                 ->where(function ($query): void {

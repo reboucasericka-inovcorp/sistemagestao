@@ -1,108 +1,189 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <style>
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 12px;
-            margin: 30px;
+            font-size: 11px;
+            color: #111;
+            margin: 22px 28px;
         }
-
-        .header {
-            margin-bottom: 25px;
+        .top-grid { width: 100%; border-collapse: collapse; }
+        .top-grid td { vertical-align: top; }
+        .logo { max-width: 155px; max-height: 90px; }
+        .doc-head { text-align: right; font-size: 14px; font-weight: bold; line-height: 1.3; }
+        .client-block { margin-top: 16px; line-height: 1.45; font-size: 12px; font-weight: 700; }
+        .meta-grid { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 10px; }
+        .meta-grid td { width: 50%; vertical-align: top; }
+        .meta-table { width: 56%; border-collapse: collapse; }
+        .meta-table th, .meta-table td {
+            border-top: 1px solid #1c1c1c;
+            border-bottom: 1px solid #1c1c1c;
+            border-left: 0;
+            border-right: 0;
+            padding: 2px 4px;
+            text-align: center;
         }
-
-        .company-name {
-            font-size: 22px;
-            font-weight: bold;
-        }
-        .company-logo {
-            max-height: 56px;
-            margin-bottom: 10px;
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 25px;
-            margin-bottom: 10px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .title-bar {
             margin-top: 10px;
+            border: 1px solid #8c8c8c;
+            background: #dedede;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 28px;
+            height: 28px;
         }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 6px;
+        .service-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10px; }
+        .service-table td { border: 0; border-bottom: 1px solid #1f1f1f; padding: 3px 4px; }
+        .service-line-title { font-weight: 700; font-size: 14px; }
+        .service-right { text-align: right; white-space: nowrap; }
+        .two-cols { width: 100%; border-collapse: collapse; margin-top: 18px; }
+        .two-cols td { vertical-align: top; width: 50%; padding-right: 12px; }
+        .section-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #1c1c1c;
+            line-height: 1.15;
+            padding-bottom: 2px;
         }
-
-        th {
-            background: #f5f5f5;
-        }
-
-        .right {
-            text-align: right;
-        }
-
-        .total-box {
-            margin-top: 20px;
-            text-align: right;
-            font-size: 16px;
-            font-weight: bold;
+        .terms { font-size: 10px; line-height: 1.45; }
+        .terms strong { font-weight: 700; }
+        .totals { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .totals td { border-bottom: 1px solid #1c1c1c; padding: 3px 4px; }
+        .totals .label { width: 62%; }
+        .totals .value { text-align: right; width: 38%; white-space: nowrap; }
+        .totals .strong { font-weight: 700; }
+        .doc-note { margin-top: 7px; text-align: center; font-size: 12px; font-weight: 700; }
+        .footer {
+            position: fixed;
+            left: 28px;
+            right: 28px;
+            bottom: 16px;
+            font-size: 10px;
+            line-height: 1.35;
         }
     </style>
 </head>
 <body>
+@php
+    $logoPath = null;
+    if (!empty($company->logo_path)) {
+        $resolvedPath = public_path('storage/' . ltrim($company->logo_path, '/'));
+        if (file_exists($resolvedPath)) {
+            $logoPath = $resolvedPath;
+        }
+    }
+    $orderNumber = (string) ($order->number ?? '-');
+    $orderDate = !empty($order->order_date) ? \Carbon\Carbon::parse($order->order_date)->format('d M Y') : '-';
+    $clientId = $order->client->number ?? $order->client->id ?? '-';
+    $clientVat = $order->client->vat ?? $order->client->tax_number ?? '-';
+    $baseTotal = (float) ($order->total_amount ?? 0);
+    $vatRate = 23.00;
+    $vatValue = $baseTotal * ($vatRate / 100);
+    $grandTotal = $baseTotal + $vatValue;
+@endphp
 
-<div class="header">
-    @if(!empty($company->logo))
-        <div>
-            <img src="{{ $company->logo }}" alt="Logo" class="company-logo">
-        </div>
-    @endif
-    <div class="company-name">{{ $company->name }}</div>
-    <div>{{ $company->address }}</div>
-    <div>{{ $company->postal_code }} {{ $company->city }}</div>
-</div>
-
-<div class="section-title">Encomenda {{ $order->number }}</div>
-
-<p>
-<strong>Cliente:</strong> {{ $order->client->name ?? '' }}<br>
-<strong>Data:</strong> {{ $order->order_date }}<br>
-<strong>Estado:</strong> {{ $order->status }}
-</p>
-
-<table>
-    <thead>
-        <tr>
-            <th style="width: 35%;">Artigo</th>
-            <th style="width: 20%;">Fornecedor</th>
-            <th style="width: 10%;">Qtd</th>
-            <th style="width: 15%;">Preço</th>
-            <th style="width: 20%;">Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($order->items as $item)
-        <tr>
-            <td>{{ $item->article->name ?? '' }}</td>
-            <td>{{ $item->supplier->name ?? '' }}</td>
-            <td class="right">{{ $item->quantity }}</td>
-            <td class="right">{{ number_format((float) $item->cost_price, 2, ',', '.') }}</td>
-            <td class="right">{{ number_format((float) $item->total, 2, ',', '.') }}</td>
-        </tr>
-        @endforeach
-    </tbody>
+<table class="top-grid">
+    <tr>
+        <td>
+            @if($logoPath)
+                <img src="{{ $logoPath }}" class="logo" alt="Logo">
+            @else
+                <div style="font-weight:700;font-size:20px;">{{ $company->name ?? 'EMPRESA' }}</div>
+            @endif
+        </td>
+        <td class="doc-head">
+            ORÇAMENTO<br>
+            {{ $orderNumber }}
+        </td>
+    </tr>
 </table>
 
-<div class="total-box">
-    Total: {{ number_format((float) $order->total_amount, 2, ',', '.') }} €
+<div class="client-block">
+    {{ strtoupper((string) ($order->client->name ?? 'CLIENTE')) }}<br>
+    {{ $order->client->address ?? '' }}<br>
+    {{ strtoupper(trim(($order->client->city ?? '') . ' ' . ($order->client->postal_code ?? ''))) }}
 </div>
 
+<table class="meta-grid">
+    <tr>
+        <td>
+            <table class="meta-table">
+                <tr><th>Cliente N.º</th><th>Contribuinte</th></tr>
+                <tr><td>{{ $clientId }}</td><td>{{ $clientVat }}</td></tr>
+            </table>
+        </td>
+        <td style="text-align:right;">
+            <table class="meta-table" style="margin-left:auto;">
+                <tr><th>Edição</th><th>de</th></tr>
+                <tr><td>1</td><td>{{ $orderDate }}</td></tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
+<div class="title-bar">PEDIDO #</div>
+
+<table class="service-table">
+    <tr>
+        <td class="service-line-title">1. SERVIÇO</td>
+        <td class="service-right">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
+    </tr>
+    @foreach($order->items as $item)
+        <tr>
+            <td>
+                1.{{ $loop->iteration }}
+                {{ $item->article->name ?? 'Serviço' }}
+                @if(!empty($item->supplier?->name))
+                    - {{ $item->supplier->name }}
+                @endif
+            </td>
+            <td class="service-right">
+                {{ number_format((float) ($item->quantity ?? 0), 2, ',', '.') }} Un &nbsp;&nbsp;
+                {{ number_format((float) ($item->cost_price ?? 0), 2, ',', '.') }} € &nbsp;&nbsp;
+                {{ number_format((float) ($item->total ?? 0), 2, ',', '.') }} €
+            </td>
+        </tr>
+    @endforeach
+</table>
+
+<table class="two-cols">
+    <tr>
+        <td>
+            <div class="section-title">Termos e Condições</div>
+            <div class="terms">
+                <strong>Prazo Entrega</strong>&nbsp;&nbsp;30 DIAS<br>
+                <strong>Condições de Pagamento:</strong><br>
+                &nbsp;&nbsp;- Adjudicação&nbsp;&nbsp;50,00 %<br>
+                &nbsp;&nbsp;- Conclusão&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;50,00 %<br>
+                <strong>Válido até</strong>&nbsp;&nbsp;{{ !empty($order->order_date) ? \Carbon\Carbon::parse($order->order_date)->addDays(30)->format('d/m/Y') : '-' }}<br>
+                <strong>* Valor sem IVA incluído</strong>
+            </div>
+        </td>
+        <td>
+            <table class="totals">
+                <tr><td class="label">Subtotal</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
+                <tr><td class="label">Desconto Linha</td><td class="value">0,00 €</td></tr>
+                <tr><td class="label">Desconto Geral</td><td class="value">0,00 €</td></tr>
+                <tr><td class="label">Total sem IVA</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
+                <tr><td class="label">IVA {{ number_format($vatRate, 2, ',', '.') }} %</td><td class="value">{{ number_format($vatValue, 2, ',', '.') }} €</td></tr>
+                <tr><td class="label strong">Total com IVA</td><td class="value strong">{{ number_format($grandTotal, 2, ',', '.') }} €</td></tr>
+            </table>
+            <div class="doc-note">Este documento não serve de fatura</div>
+        </td>
+    </tr>
+</table>
+
+<div class="footer">
+    Contactos<br>
+    {{ $company->address ?? '-' }}<br>
+    @if(!empty($company->phone))T {{ $company->phone }} @endif
+    @if(!empty($company->mobile))&nbsp;&nbsp;M {{ $company->mobile }}@endif<br>
+    @if(!empty($company->email)){{ $company->email }}<br>@endif
+    @if(!empty($company->website)){{ $company->website }}@endif
+</div>
 </body>
 </html>
