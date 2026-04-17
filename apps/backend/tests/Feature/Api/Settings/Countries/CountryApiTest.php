@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api\Settings\Countries;
 
 use App\Models\Settings\CountryModel;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,7 +12,7 @@ class CountryApiTest extends TestCase
 
     public function test_it_lists_countries_with_standard_response_shape(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions(['countries.read']);
         CountryModel::query()->create([
             'name' => 'Portugal',
             'code' => 'PT',
@@ -32,7 +31,7 @@ class CountryApiTest extends TestCase
 
     public function test_it_creates_a_country(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions(['countries.create']);
 
         $payload = [
             'name' => 'Espanha',

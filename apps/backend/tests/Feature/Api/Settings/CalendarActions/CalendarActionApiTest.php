@@ -4,7 +4,6 @@ namespace Tests\Feature\Api\Settings\CalendarActions;
 
 use App\Models\Settings\CalendarActionModel;
 use App\Models\Settings\CalendarTypeModel;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -14,7 +13,7 @@ class CalendarActionApiTest extends TestCase
 
     public function test_it_lists_calendar_actions_with_meta(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions(['calendar-actions.read']);
         $calendarType = CalendarTypeModel::query()->create([
             'name' => 'Comercial',
             'color' => '#2563EB',
@@ -39,7 +38,12 @@ class CalendarActionApiTest extends TestCase
 
     public function test_it_performs_basic_crud_flow(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions([
+            'calendar-actions.read',
+            'calendar-actions.create',
+            'calendar-actions.update',
+            'calendar-actions.delete',
+        ]);
         $calendarType = CalendarTypeModel::query()->create([
             'name' => 'Interno',
             'color' => '#22C55E',
@@ -64,12 +68,12 @@ class CalendarActionApiTest extends TestCase
 
         $updateResponse = $this->putJson("/api/v1/calendar-actions/{$id}", [
             'name' => 'Reuniao Semanal',
-            'calendar_type_id' => null,
+            'calendar_type_id' => $calendarType->id,
         ]);
         $updateResponse
             ->assertOk()
             ->assertJsonPath('data.name', 'Reuniao Semanal')
-            ->assertJsonPath('data.calendar_type_id', null);
+            ->assertJsonPath('data.calendar_type_id', $calendarType->id);
 
         $deleteResponse = $this->deleteJson("/api/v1/calendar-actions/{$id}");
         $deleteResponse->assertOk()->assertJsonPath('data.is_active', false);

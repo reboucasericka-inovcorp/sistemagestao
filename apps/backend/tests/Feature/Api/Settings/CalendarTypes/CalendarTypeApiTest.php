@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api\Settings\CalendarTypes;
 
 use App\Models\Settings\CalendarTypeModel;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,7 +12,7 @@ class CalendarTypeApiTest extends TestCase
 
     public function test_it_lists_calendar_types_with_meta(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions(['calendar-types.read']);
         CalendarTypeModel::query()->create([
             'name' => 'Reuniao',
             'color' => '#22C55E',
@@ -33,7 +32,12 @@ class CalendarTypeApiTest extends TestCase
 
     public function test_it_performs_basic_crud_flow(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions([
+            'calendar-types.read',
+            'calendar-types.create',
+            'calendar-types.update',
+            'calendar-types.delete',
+        ]);
 
         $createResponse = $this->postJson('/api/v1/calendar-types', [
             'name' => 'Visita',

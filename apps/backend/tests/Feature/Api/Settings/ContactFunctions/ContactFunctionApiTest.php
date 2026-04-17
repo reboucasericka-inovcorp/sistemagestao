@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api\Settings\ContactFunctions;
 
 use App\Models\Settings\ContactFunctionModel;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,7 +12,7 @@ class ContactFunctionApiTest extends TestCase
 
     public function test_it_lists_contact_functions_with_standard_response_shape(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions(['contact-functions.read']);
         ContactFunctionModel::query()->create([
             'name' => 'Comercial',
             'is_active' => true,
@@ -31,7 +30,12 @@ class ContactFunctionApiTest extends TestCase
 
     public function test_it_performs_basic_crud_flow(): void
     {
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAsWithPermissions([
+            'contact-functions.read',
+            'contact-functions.create',
+            'contact-functions.update',
+            'contact-functions.delete',
+        ]);
 
         $createResponse = $this->postJson('/api/v1/contact-functions', [
             'name' => 'Financeiro',

@@ -75,6 +75,7 @@ class CompanyApiTest extends TestCase
 
         $putResponse = $this->putJson('/api/v1/company', [
             'name' => 'Inovcorp SA',
+            'tax_number' => '123456789',
             'city' => 'Porto',
             'is_active' => true,
         ]);
