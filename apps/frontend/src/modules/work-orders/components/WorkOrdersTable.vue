@@ -25,6 +25,7 @@ import {
   getWorkOrders,
 } from '@/modules/work-orders/services/workOrderService'
 import type { WorkOrder } from '@/modules/work-orders/types/workOrder'
+import { getClientOrders } from '@/modules/client-orders/services/clientOrderService'
 import { toast } from 'vue-sonner'
 
 const router = useRouter()
@@ -32,8 +33,10 @@ const workOrders = ref<WorkOrder[]>([])
 const loading = ref(false)
 const errorMessage = ref('')
 const convertDialogOpen = ref(false)
-const clientOrderIdInput = ref('')
+const clientOrderIdInput = ref<number | null>(null)
+const clientOrders = ref<Array<{ id: number; number: string }>>([])
 const convertingFromClientOrder = ref(false)
+const loadingClientOrders = ref(false)
 
 function formatDate(value: string): string {
   if (!value) return '-'
@@ -74,20 +77,19 @@ function goToEdit(id: number): void {
 }
 
 function openConvertFromClientOrderDialog(): void {
-  clientOrderIdInput.value = ''
+  clientOrderIdInput.value = null
   convertDialogOpen.value = true
 }
 
 async function confirmConvertFromClientOrder(): Promise<void> {
-  const clientOrderId = Number(clientOrderIdInput.value.trim())
-  if (Number.isNaN(clientOrderId) || clientOrderId <= 0) {
-    toast.error('Indique um ID de encomenda válido.')
+  if (!clientOrderIdInput.value) {
+    toast.error('Selecione uma encomenda válida.')
     return
   }
 
   convertingFromClientOrder.value = true
   try {
-    await convertWorkOrderFromClientOrder(clientOrderId)
+    await convertWorkOrderFromClientOrder(clientOrderIdInput.value)
     toast.success('OT criada com sucesso a partir da encomenda.')
     convertDialogOpen.value = false
     await loadWorkOrders()
@@ -108,7 +110,20 @@ async function confirmConvertFromClientOrder(): Promise<void> {
 
 onMounted(() => {
   void loadWorkOrders()
+  void loadClientOrders()
 })
+
+async function loadClientOrders(): Promise<void> {
+  loadingClientOrders.value = true
+  try {
+    const orders = await getClientOrders()
+    clientOrders.value = orders.map((order) => ({ id: order.id, number: order.number }))
+  } catch {
+    clientOrders.value = []
+  } finally {
+    loadingClientOrders.value = false
+  }
+}
 </script>
 
 <template>
@@ -159,19 +174,19 @@ onMounted(() => {
         <DialogHeader>
           <DialogTitle>Converter encomenda em OT</DialogTitle>
           <DialogDescription>
-            Indique o ID da encomenda de cliente a converter.
+            Selecione a encomenda de cliente a converter.
           </DialogDescription>
         </DialogHeader>
 
-        <Input
-          v-model="clientOrderIdInput"
-          type="text"
-          inputmode="numeric"
-          autocomplete="off"
-          placeholder="ID da encomenda"
-          class="w-full"
-          @keydown.enter.prevent="confirmConvertFromClientOrder"
-        />
+        <select v-model="clientOrderIdInput" class="w-full rounded-md border px-3 py-2">
+          <option :value="null">Selecione uma encomenda</option>
+          <option v-for="order in clientOrders" :key="order.id" :value="order.id">
+            {{ order.number }}
+          </option>
+        </select>
+        <p v-if="loadingClientOrders" class="text-xs text-muted-foreground">
+          A carregar encomendas...
+        </p>
 
         <DialogFooter>
           <Button variant="outline" @click="convertDialogOpen = false">Cancelar</Button>

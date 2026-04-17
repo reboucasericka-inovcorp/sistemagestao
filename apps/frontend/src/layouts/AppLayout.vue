@@ -1,64 +1,86 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import type { RouteLocationRaw } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useCompany } from '@/core/company/useCompany'
-import { fetchAuthenticatedUser, logout } from '@/modules/auth/services/authService'
+import {
+  fetchAuthenticatedUser,
+  logout,
+  peekAuthenticatedUser,
+} from '@/modules/auth/services/authService'
 import type { AuthenticatedUser } from '@/modules/auth/services/authService'
 import AppNavLink from '@/shared/components/AppNavLink.vue'
 
 type NavItem = {
   label: string
   to?: RouteLocationRaw
+  /** Permissão Spatie; omitir = qualquer utilizador autenticado (UX; backend continua a validar). */
+  permission?: string
   children?: NavItem[]
 }
 
 const navItems: NavItem[] = [
-  { label: 'Clientes', to: '/clients' },
-  { label: 'Fornecedores', to: '/suppliers' },
-  { label: 'Contactos', to: '/contacts' },
+  { label: 'Clientes', to: '/clients', permission: 'entities.read' },
+  { label: 'Fornecedores', to: '/suppliers', permission: 'entities.read' },
+  { label: 'Contactos', to: '/contacts', permission: 'contacts.read' },
   { label: 'Propostas', to: '/proposals' },
-  { label: 'Calendário', to: '/calendar' },
+  { label: 'Calendário', to: '/calendar', permission: 'calendar-events.read' },
   { label: 'Encomendas - Clientes', to: '/client-orders' },
   { label: 'Encomendas - Fornecedores', to: '/supplier-orders' },
   { label: 'Ordens de Trabalho', to: '/work-orders' },
   {
     label: 'Financeiro',
     children: [
-      { label: 'Contas Bancárias', to: '/finance' },
-      { label: 'Conta Corrente Clientes', to: '/finance' },
-      { label: 'Faturas Fornecedores', to: '/supplier-invoices' },
+      { label: 'Contas Bancárias', to: '/bank-accounts' },
+      { label: 'Conta Corrente Clientes', to: '/customer-accounts' },
+      { label: 'Faturas Fornecedores', to: '/supplier-invoices', permission: 'supplier-invoices.read' },
     ],
   },
-  { label: 'Arquivo Digital', to: '/settings' },
+  { label: 'Arquivo Digital', to: '/digital-archive', permission: 'digital-files.read' },
   {
     label: 'Gestão de Acessos',
     children: [
-      { label: 'Utilizadores', to: '/users' },
-      { label: 'Permissões', to: '/permissions' },
+      { label: 'Utilizadores', to: '/users', permission: 'users.read' },
+      { label: 'Permissões', to: '/permissions', permission: 'roles.read' },
     ],
   },
   {
     label: 'Configurações',
     children: [
-      { label: 'Entidades - Países', to: '/settings/countries' },
-      { label: 'Contactos - Funções', to: '/settings/contact-functions' },
-      { label: 'Calendário - Tipos', to: '/settings/calendar-types' },
-      { label: 'Calendário - Acções', to: '/settings/calendar-actions' },
-      { label: 'Artigos', to: '/settings/articles' },
-      { label: 'Financeiro - IVA', to: '/settings/vat' },
-      { label: 'Logs', to: '/settings/logs' },
-      { label: 'Empresa', to: '/settings/company' },
+      { label: 'Entidades - Países', to: '/settings/countries', permission: 'countries.read' },
+      {
+        label: 'Contactos - Funções',
+        to: '/settings/contact-functions',
+        permission: 'contact-functions.read',
+      },
+      { label: 'Calendário - Tipos', to: '/settings/calendar-types', permission: 'calendar-types.read' },
+      {
+        label: 'Calendário - Acções',
+        to: '/settings/calendar-actions',
+        permission: 'calendar-actions.read',
+      },
+      { label: 'Artigos', to: '/settings/articles', permission: 'articles.read' },
+      { label: 'Financeiro - IVA', to: '/settings/vat', permission: 'vat.read' },
+      { label: 'Logs', to: '/settings/logs', permission: 'logs.read' },
+      { label: 'Empresa', to: '/settings/company', permission: 'company.update' },
     ],
   },
 ]
+
+function snapshotUserFromCache(): AuthenticatedUser | null {
+  const cached = peekAuthenticatedUser()
+  if (cached === undefined) {
+    return null
+  }
+  return cached
+}
 
 const route = useRoute()
 const router = useRouter()
 const { company, loadCompany } = useCompany()
 const profileMenuOpen = ref(false)
-const authenticatedUser = ref<AuthenticatedUser | null>(null)
+const authenticatedUser = ref<AuthenticatedUser | null>(snapshotUserFromCache())
 const logoutLoading = ref(false)
 const companyName = computed(() => company.value?.name || '')
 const companyLogoUrl = computed(() => company.value?.logo_url || null)
@@ -75,15 +97,45 @@ const isItemActive = (item: NavItem): boolean => {
   return router.resolve(item.to).path === route.path
 }
 
-const initialDropdownState = navItems.reduce<Record<string, boolean>>((acc, item) => {
-  if (item.children?.length) {
-    acc[item.label] = isItemActive(item)
+/** UX: só esconde entradas — segurança continua no backend e no router guard. */
+function canSeeNavEntry(permission?: string): boolean {
+  if (!permission) {
+    return true
   }
+  const perms = authenticatedUser.value?.permissions
+  return Array.isArray(perms) && perms.includes(permission)
+}
 
-  return acc
-}, {})
+const visibleNavItems = computed(() => {
+  return navItems
+    .map((item) => {
+      if (item.children?.length) {
+        const children = item.children.filter((child) => canSeeNavEntry(child.permission))
+        if (children.length === 0) {
+          return null
+        }
+        return { ...item, children }
+      }
+      return canSeeNavEntry(item.permission) ? item : null
+    })
+    .filter((item): item is NavItem => item !== null)
+})
 
-const openDropdowns = ref(initialDropdownState)
+const openDropdowns = ref<Record<string, boolean>>({})
+
+watch(
+  visibleNavItems,
+  (items) => {
+    const next = { ...openDropdowns.value }
+    for (const item of items) {
+      if (item.children?.length && next[item.label] === undefined) {
+        next[item.label] = isItemActive(item)
+      }
+    }
+    openDropdowns.value = next
+  },
+  { immediate: true },
+)
 
 const toggleDropdown = (label: string): void => {
   openDropdowns.value[label] = !openDropdowns.value[label]
@@ -96,8 +148,6 @@ const isDropdownOpen = (item: NavItem): boolean => {
 
   return openDropdowns.value[item.label] ?? false
 }
-
-const navList = computed(() => navItems)
 
 const toggleProfileMenu = (): void => {
   profileMenuOpen.value = !profileMenuOpen.value
@@ -133,7 +183,7 @@ onMounted(async () => {
       </header>
       <nav class="nav-wrapper">
         <ul class="nav-list">
-          <li v-for="item in navList" :key="item.label">
+          <li v-for="item in visibleNavItems" :key="item.label">
             <button
               v-if="item.children?.length"
               type="button"
