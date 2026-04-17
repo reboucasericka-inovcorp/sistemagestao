@@ -1,15 +1,28 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useCompany } from '@/core/company/useCompany'
 import {
   completeTwoFactorLogin,
+  fetchAuthenticatedUser,
   fetchSanctumCsrfCookie,
+  invalidateAuthenticatedUserCache,
   loginWithCredentials,
 } from '@/modules/auth/services/authService'
 
 const router = useRouter()
+const route = useRoute()
+
+function redirectAfterLogin(): void {
+  const raw = route.query.redirect
+  const candidate = typeof raw === 'string' ? raw.trim() : ''
+  if (candidate.startsWith('/') && !candidate.startsWith('//')) {
+    router.push(candidate)
+    return
+  }
+  router.push('/clients')
+}
 const { company, loadCompany } = useCompany()
 
 const email = ref('')
@@ -33,7 +46,9 @@ const login = async () => {
       requiresTwoFactor.value = true
       return
     }
-    router.push('/clients')
+    invalidateAuthenticatedUserCache()
+    await fetchAuthenticatedUser({ force: true })
+    redirectAfterLogin()
   } catch (e: unknown) {
     errorMessage.value = axios.isAxiosError(e)
       ? String((e.response?.data as { message?: unknown })?.message ?? e.message)
@@ -53,7 +68,9 @@ const submitTwoFactor = async () => {
         ? { recovery_code: recoveryCode.value.trim() }
         : { code: twoFactorCode.value.trim() },
     )
-    router.push('/clients')
+    invalidateAuthenticatedUserCache()
+    await fetchAuthenticatedUser({ force: true })
+    redirectAfterLogin()
   } catch (e: unknown) {
     const status = axios.isAxiosError(e) ? e.response?.status : undefined
     if (status === 422) {

@@ -17,6 +17,15 @@ const sanctumHttp = axios.create({
   },
 })
 
+/** Único endpoint do utilizador autenticado (alinha com Laravel `routes/api.php`). */
+export const AUTH_ME_ENDPOINT = '/api/v1/me'
+
+/** `undefined` = ainda não carregado; `null` = sessão sem utilizador */
+let authenticatedUserCache: AuthenticatedUser | null | undefined
+
+/** Pedido em curso — evita `/me` duplicado em navegação rápida */
+let fetchAuthenticatedUserInFlight: Promise<AuthenticatedUser | null> | null = null
+
 export async function fetchSanctumCsrfCookie(): Promise<void> {
   await sanctumHttp.get('/sanctum/csrf-cookie')
 }
@@ -57,6 +66,7 @@ export type AuthenticatedUser = {
   id: number
   name: string
   email: string
+  permissions?: string[]
 }
 
 type AuthenticatedUserPayload =
@@ -66,28 +76,75 @@ type AuthenticatedUserPayload =
     }
 
 function normalizeAuthenticatedUser(payload: AuthenticatedUserPayload): AuthenticatedUser | null {
+  let user: AuthenticatedUser | null = null
+
   if ('name' in payload && typeof payload.name === 'string') {
-    return payload
+    user = payload
+  } else if ('data' in payload && payload.data?.name) {
+    user = payload.data
   }
 
-  if ('data' in payload && payload.data?.name) {
-    return payload.data
-  }
-
-  return null
-}
-
-export async function fetchAuthenticatedUser(): Promise<AuthenticatedUser | null> {
-  try {
-    const response = await sanctumHttp.get<AuthenticatedUserPayload>('/api/v1/me')
-    const normalized = normalizeAuthenticatedUser(response.data)
-    return normalized
-  } catch {
+  if (!user) {
     return null
   }
+
+  const permissions = Array.isArray(user.permissions) ? user.permissions : []
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    permissions,
+  }
+}
+
+export function invalidateAuthenticatedUserCache(): void {
+  authenticatedUserCache = undefined
+  fetchAuthenticatedUserInFlight = null
+}
+
+export async function fetchAuthenticatedUser(options?: { force?: boolean }): Promise<AuthenticatedUser | null> {
+  if (!options?.force && authenticatedUserCache !== undefined) {
+    return authenticatedUserCache
+  }
+
+  if (!options?.force && fetchAuthenticatedUserInFlight !== null) {
+    return fetchAuthenticatedUserInFlight
+  }
+
+  const promise = (async (): Promise<AuthenticatedUser | null> => {
+    try {
+      const response = await sanctumHttp.get<AuthenticatedUserPayload>(AUTH_ME_ENDPOINT)
+      const normalized = normalizeAuthenticatedUser(response.data)
+      authenticatedUserCache = normalized
+      return normalized
+    } catch {
+      authenticatedUserCache = null
+      return null
+    } finally {
+      fetchAuthenticatedUserInFlight = null
+    }
+  })()
+
+  fetchAuthenticatedUserInFlight = promise
+  return promise
+}
+
+/** Leitura síncrona do cache (ex.: menu logo após o router guard). Não dispara pedido HTTP. */
+export function peekAuthenticatedUser(): AuthenticatedUser | null | undefined {
+  return authenticatedUserCache
+}
+
+export function hasPermission(permission: string): boolean {
+  const user = authenticatedUserCache
+  if (!user || !Array.isArray(user.permissions)) {
+    return false
+  }
+  return user.permissions.includes(permission)
 }
 
 export async function logout(): Promise<void> {
   await fetchSanctumCsrfCookie()
   await sanctumHttp.post('/logout')
+  invalidateAuthenticatedUserCache()
 }

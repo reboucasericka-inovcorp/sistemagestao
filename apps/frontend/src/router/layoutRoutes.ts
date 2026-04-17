@@ -15,6 +15,7 @@ import { contactFunctionsRoutes } from '@/modules/settings/contact-functions/rou
 import { countriesRoutes } from '@/modules/settings/countries/routes'
 import { entityRoutes } from '@/modules/entities/routes'
 import { financeRoutes } from '@/modules/finance/routes'
+import { digitalArchiveRoutes } from '@/modules/digital-archive/routes'
 import { settingsLogsRoutes } from '@/modules/settings/logs/routes'
 import { ordersRoutes } from '@/modules/orders/routes'
 import { proposalsRoutes } from '@/modules/proposals/routes'
@@ -38,6 +39,7 @@ export const layoutChildren: RouteRecordRaw[] = [
   ...workOrdersRoutes,
   ...ordersRoutes,
   ...financeRoutes,
+  ...digitalArchiveRoutes,
   ...calendarRoutes,
   ...authProfileRoutes,
   ...accessUsersRoutes,
@@ -47,4 +49,6 @@ export const layoutChildren: RouteRecordRaw[] = [
   ...settingsCompanyRoutes,
   ...vatRoutes,
   ...companyRoutes,
+  /** Último: rotas inválidas → página inicial da app */
+  { path: ':pathMatch(.*)*', redirect: '/clients' },
 ]

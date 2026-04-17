@@ -15,6 +15,7 @@ export const API_ROUTES = {
   countries: '/countries',
   vat: '/vat',
   articles: '/articles',
+  digitalFiles: '/digital-files',
 
   // Company
   company: '/company',
