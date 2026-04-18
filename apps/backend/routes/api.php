@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\Contacts\ContactControllerAPI;
 use App\Http\Controllers\Api\V1\Calendar\CalendarEventControllerAPI;
 use App\Http\Controllers\Api\V1\Access\Roles\RoleControllerAPI;
 use App\Http\Controllers\Api\V1\Access\Users\UserControllerAPI;
+use App\Http\Controllers\Api\V1\Finance\BankAccountControllerAPI;
+use App\Http\Controllers\Api\V1\Finance\CustomerAccountControllerAPI;
 use App\Http\Controllers\Api\V1\Finance\SupplierInvoiceControllerAPI;
 use App\Http\Controllers\Api\V1\Orders\ClientOrderControllerAPI;
 use App\Http\Controllers\Api\V1\Orders\SupplierOrderControllerAPI;
@@ -159,6 +161,17 @@ Route::prefix('v1')->group(function (): void {
         Route::get('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'show']);
         Route::post('supplier-orders', [SupplierOrderControllerAPI::class, 'store']);
         Route::put('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'update']);
+
+        Route::get('bank-accounts', [BankAccountControllerAPI::class, 'index'])->middleware('permission:bank-accounts.read');
+        Route::get('bank-accounts/{id}', [BankAccountControllerAPI::class, 'show'])->middleware('permission:bank-accounts.read');
+        Route::post('bank-accounts', [BankAccountControllerAPI::class, 'store'])->middleware('permission:bank-accounts.create');
+        Route::put('bank-accounts/{id}', [BankAccountControllerAPI::class, 'update'])->middleware('permission:bank-accounts.update');
+        Route::delete('bank-accounts/{id}', [BankAccountControllerAPI::class, 'destroy'])->middleware('permission:bank-accounts.delete');
+
+        Route::get('customer-accounts', [CustomerAccountControllerAPI::class, 'index'])->middleware('permission:customer-accounts.read');
+        Route::get('customer-accounts/{id}', [CustomerAccountControllerAPI::class, 'show'])->middleware('permission:customer-accounts.read');
+        Route::get('customer-accounts/{id}/movements', [CustomerAccountControllerAPI::class, 'movements'])->middleware('permission:customer-accounts.read');
+        Route::post('customer-accounts/{id}/movements', [CustomerAccountControllerAPI::class, 'storeMovement'])->middleware('permission:customer-accounts.create');
 
         Route::get('supplier-invoices', [SupplierInvoiceControllerAPI::class, 'index'])->middleware('permission:supplier-invoices.read');
         Route::get('supplier-invoices/{id}', [SupplierInvoiceControllerAPI::class, 'show'])->middleware('permission:supplier-invoices.read');

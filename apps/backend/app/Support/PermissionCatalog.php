@@ -24,6 +24,8 @@ class PermissionCatalog
             'users',
             'roles',
             'digital-files',
+            'bank-accounts',
+            'customer-accounts',
             'supplier-invoices',
         ];
     }

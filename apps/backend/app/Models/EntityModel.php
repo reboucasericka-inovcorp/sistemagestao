@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EntityModel extends Model
 {
@@ -71,6 +72,11 @@ class EntityModel extends Model
     public function country(): BelongsTo
     {
         return $this->belongsTo(CountryModel::class, 'country_id');
+    }
+
+    public function customerAccount(): HasOne
+    {
+        return $this->hasOne(\App\Models\Finance\CustomerAccountModel::class, 'entity_id');
     }
 
     protected function activityLogName(): string
