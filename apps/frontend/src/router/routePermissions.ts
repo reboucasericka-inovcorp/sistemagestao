@@ -16,6 +16,18 @@ export function resolvePermissionForPath(fullPath: string): string | undefined {
   if (path.startsWith('/supplier-invoices/create')) {
     return 'supplier-invoices.create'
   }
+  if (path.startsWith('/bank-accounts/create')) {
+    return 'bank-accounts.create'
+  }
+  if (/^\/bank-accounts\/\d+\/edit$/.test(path)) {
+    return 'bank-accounts.update'
+  }
+  if (path.startsWith('/bank-accounts')) {
+    return 'bank-accounts.read'
+  }
+  if (path.startsWith('/customer-accounts')) {
+    return 'customer-accounts.read'
+  }
   if (/^\/supplier-invoices\/\d+\/edit$/.test(path)) {
     return 'supplier-invoices.update'
   }

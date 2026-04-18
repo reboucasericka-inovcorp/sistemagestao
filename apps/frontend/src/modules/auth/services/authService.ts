@@ -112,7 +112,7 @@ export async function fetchAuthenticatedUser(options?: { force?: boolean }): Pro
     return fetchAuthenticatedUserInFlight
   }
 
-  const promise = (async (): Promise<AuthenticatedUser | null> => {
+  fetchAuthenticatedUserInFlight = (async (): Promise<AuthenticatedUser | null> => {
     try {
       const response = await sanctumHttp.get<AuthenticatedUserPayload>(AUTH_ME_ENDPOINT)
       const normalized = normalizeAuthenticatedUser(response.data)
@@ -126,8 +126,7 @@ export async function fetchAuthenticatedUser(options?: { force?: boolean }): Pro
     }
   })()
 
-  fetchAuthenticatedUserInFlight = promise
-  return promise
+  return fetchAuthenticatedUserInFlight
 }
 
 /** Leitura síncrona do cache (ex.: menu logo após o router guard). Não dispara pedido HTTP. */

@@ -32,8 +32,8 @@ const navItems: NavItem[] = [
   {
     label: 'Financeiro',
     children: [
-      { label: 'Contas Bancárias', to: '/bank-accounts' },
-      { label: 'Conta Corrente Clientes', to: '/customer-accounts' },
+      { label: 'Contas Bancárias', to: '/bank-accounts', permission: 'bank-accounts.read' },
+      { label: 'Conta Corrente Clientes', to: '/customer-accounts', permission: 'customer-accounts.read' },
       { label: 'Faturas Fornecedores', to: '/supplier-invoices', permission: 'supplier-invoices.read' },
     ],
   },

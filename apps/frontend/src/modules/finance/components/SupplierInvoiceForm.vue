@@ -7,6 +7,7 @@ import { toTypedSchema } from '@vee-validate/zod'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { handleApiError } from '@/shared/utils/handleApiError'
 import { getSupplierOptions } from '@/modules/proposals/services/proposalService'
 import type { SupplierOption } from '@/modules/proposals/services/proposalService'
 import {
@@ -124,6 +125,7 @@ const onSubmit = async (values: SupplierInvoiceFormSchema) => {
     setFieldValue('document_file', undefined)
     setFieldValue('payment_proof_file', undefined)
   } catch (e: unknown) {
+    handleApiError(e)
     if (axios.isAxiosError(e)) {
       const status = e.response?.status
       const apiMsg = String((e.response?.data as { message?: unknown })?.message ?? '').trim()

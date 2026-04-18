@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { getCompany, updateCompany } from '@/modules/settings/company/services/companyService'
+import { useCompany } from '@/core/company/useCompany'
+import { updateCompany } from '@/modules/settings/company/services/companyService'
 import type { Company, UpsertCompanyPayload } from '@/modules/settings/company/types/company'
 import { listCountriesResult } from '@/modules/settings/countries/services/countryService'
 import type { Country } from '@/modules/settings/countries/types/country'
@@ -34,6 +35,7 @@ const feedbackKind = ref<'success' | 'error' | ''>('')
 const logoPreviewUrl = ref<string | null>(null)
 const logoFile = ref<File | null>(null)
 const countryOptions = ref<Country[]>([])
+const { company: companyFromStore, loadCompany: ensureCompanyLoaded } = useCompany()
 
 const companySchema = z.object({
   name: z.string().trim().min(1, 'Nome é obrigatório'),
@@ -69,7 +71,7 @@ const defaultValues: CompanyFormData = {
   tax_number: '',
 }
 
-const { setValues, setFieldValue, setErrors, values } = useForm<CompanyFormData>({
+const { setValues, setFieldValue, setErrors } = useForm<CompanyFormData>({
   validationSchema: toTypedSchema(companySchema),
   initialValues: defaultValues,
 })
@@ -97,7 +99,6 @@ async function applyCompanyData(data: Company): Promise<void> {
     is_active: data.is_active ?? true,
     tax_number: data.tax_number ?? '',
   })
-  console.log('FORM VALUES:', values)
   logoPreviewUrl.value = data.logo_url ?? null
 }
 
@@ -161,20 +162,21 @@ async function loadCountries(): Promise<void> {
   countryOptions.value = countriesResult.data.filter((country) => country.is_active)
 }
 
-async function loadCompany(): Promise<void> {
-  console.log('[CompanyForm] loadCompany called')
+async function loadPageData(): Promise<void> {
   pageLoading.value = true
   try {
     const [companyResult, countriesResult] = await Promise.allSettled([
-      getCompany(),
+      ensureCompanyLoaded(),
       loadCountries(),
     ])
 
-    if (companyResult.status === 'fulfilled' && companyResult.value) {
-      const company = companyResult.value
-      console.log('RAW API RESULT:', company)
-      const normalized = (company as Company & { data?: Company })?.data ?? company
-      console.log('NORMALIZED:', normalized)
+    if (companyResult.status === 'rejected') {
+      throw companyResult.reason
+    }
+
+    const raw = companyFromStore.value
+    if (raw) {
+      const normalized = (raw as Company & { data?: Company })?.data ?? raw
       await applyCompanyData(normalized as Company)
     }
 
@@ -182,10 +184,6 @@ async function loadCompany(): Promise<void> {
       feedbackKind.value = 'error'
       feedbackMessage.value =
         'Dados da empresa carregados, mas não foi possível carregar a lista de países.'
-    }
-
-    if (companyResult.status === 'rejected') {
-      throw companyResult.reason
     }
   } catch {
     feedbackKind.value = 'error'
@@ -204,8 +202,7 @@ async function onSubmit(values: CompanyFormData): Promise<void> {
     const payload = toPayload(values)
     const saved = await updateCompany(payload)
     const normalized = (saved as Company & { data?: Company })?.data ?? saved
-    console.log('RAW API RESULT:', saved)
-    console.log('NORMALIZED:', normalized)
+    companyFromStore.value = normalized
     await applyCompanyData(normalized as Company)
     logoFile.value = null
     feedbackKind.value = 'success'
@@ -230,7 +227,7 @@ const submitWithValidation = async (submittedValues: CompanyFormData) => {
 onMounted(() => {
   void (async () => {
     await nextTick()
-    await loadCompany()
+    await loadPageData()
   })()
 })
 

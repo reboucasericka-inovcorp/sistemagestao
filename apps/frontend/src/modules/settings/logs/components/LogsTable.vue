@@ -21,6 +21,26 @@ import {
 import { listLogsResult, type LogsListMeta } from '@/modules/settings/logs/services/logService'
 import type { Log, LogAction } from '@/modules/settings/logs/types/log'
 
+/** Reka UI: <SelectItem> não pode ter value="". */
+const SELECT_EMPTY_PLACEHOLDER = '__placeholder__' as const
+
+function toSelectModel(v: string): string {
+  return v === '' ? SELECT_EMPTY_PLACEHOLDER : v
+}
+
+function fromSelectString(raw: unknown): string {
+  const s = String(raw ?? '')
+  return s === SELECT_EMPTY_PLACEHOLDER ? '' : s
+}
+
+function fromSelectAction(raw: unknown): '' | LogAction {
+  const s = String(raw ?? '')
+  if (s === SELECT_EMPTY_PLACEHOLDER) {
+    return ''
+  }
+  return s as LogAction
+}
+
 const logs = ref<Log[]>([])
 const loading = ref(false)
 const errorMessage = ref('')
@@ -138,9 +158,9 @@ onBeforeUnmount(() => {
       />
 
       <Select
-        :model-value="filters.user"
+        :model-value="toSelectModel(filters.user)"
         @update:model-value="
-          filters.user = String($event);
+          filters.user = fromSelectString($event);
           pagination.current_page = 1
         "
       >
@@ -148,7 +168,7 @@ onBeforeUnmount(() => {
           <SelectValue placeholder="Utilizador" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">Todos utilizadores</SelectItem>
+          <SelectItem :value="SELECT_EMPTY_PLACEHOLDER" disabled>Todos utilizadores</SelectItem>
           <SelectItem v-for="user in userOptions" :key="user" :value="user">{{ user }}</SelectItem>
         </SelectContent>
       </Select>
@@ -174,9 +194,9 @@ onBeforeUnmount(() => {
       />
 
       <Select
-        :model-value="filters.menu"
+        :model-value="toSelectModel(filters.menu)"
         @update:model-value="
-          filters.menu = String($event);
+          filters.menu = fromSelectString($event);
           pagination.current_page = 1
         "
       >
@@ -184,15 +204,15 @@ onBeforeUnmount(() => {
           <SelectValue placeholder="Menu" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">Todos menus</SelectItem>
+          <SelectItem :value="SELECT_EMPTY_PLACEHOLDER" disabled>Todos menus</SelectItem>
           <SelectItem v-for="menu in menuOptions" :key="menu" :value="menu">{{ menu }}</SelectItem>
         </SelectContent>
       </Select>
 
       <Select
-        :model-value="filters.action"
+        :model-value="toSelectModel(filters.action)"
         @update:model-value="
-          filters.action = (String($event) as '' | LogAction);
+          filters.action = fromSelectAction($event);
           pagination.current_page = 1
         "
       >
@@ -200,7 +220,7 @@ onBeforeUnmount(() => {
           <SelectValue placeholder="Ação" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">Todas ações</SelectItem>
+          <SelectItem :value="SELECT_EMPTY_PLACEHOLDER" disabled>Todas ações</SelectItem>
           <SelectItem v-for="action in actionOptions" :key="action" :value="action">{{ action }}</SelectItem>
         </SelectContent>
       </Select>
