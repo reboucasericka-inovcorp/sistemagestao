@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useForm } from 'vee-validate'
 
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
+import { toast } from 'vue-sonner'
 
 // UI COMPONENTS (SHADCN)
 import { Button } from '@/components/ui/button'
@@ -80,7 +81,6 @@ const viesLoading = ref(false)
 const feedbackMessage = ref('')
 const feedbackKind = ref<'success' | 'error' | ''>('')
 const countryOptions = ref<Country[]>([])
-const viesDebounceId = ref<number | null>(null)
 
 const entitySchema = z
   .object({
@@ -251,6 +251,11 @@ async function onNifBlur(): Promise<void> {
   }
 
   setFieldValue('nif', nifDigits)
+  if (nifDigits.length < 9) {
+    return
+  }
+
+  await fetchViesData(nifDigits)
 }
 
 async function fetchViesData(nifDigits: string): Promise<void> {
@@ -262,6 +267,7 @@ async function fetchViesData(nifDigits: string): Promise<void> {
   try {
     const viesData = await lookupEntityByVies(nifDigits)
     if (!viesData.valid) {
+      toast.error('NIF inválido.')
       return
     }
     if (viesData.name && !values.name) {
@@ -271,7 +277,7 @@ async function fetchViesData(nifDigits: string): Promise<void> {
       setFieldValue('address', viesData.address)
     }
   } catch {
-    // Integração pode não estar disponível no ambiente.
+    toast.error('Não foi possível validar NIF. Preencha manualmente.')
   } finally {
     viesLoading.value = false
   }
@@ -433,29 +439,6 @@ watch(
   { immediate: true },
 )
 
-watch(
-  () => values.nif,
-  (rawNif) => {
-    const nifDigits = (rawNif ?? '').replace(/\D/g, '')
-    if (viesDebounceId.value != null) {
-      window.clearTimeout(viesDebounceId.value)
-      viesDebounceId.value = null
-    }
-    if (nifDigits.length < 9) {
-      return
-    }
-
-    viesDebounceId.value = window.setTimeout(() => {
-      void fetchViesData(nifDigits)
-    }, 500)
-  },
-)
-
-onBeforeUnmount(() => {
-  if (viesDebounceId.value != null) {
-    window.clearTimeout(viesDebounceId.value)
-  }
-})
 </script>
 
 <template>

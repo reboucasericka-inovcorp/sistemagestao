@@ -96,6 +96,8 @@ export async function toggleEntityStatus(id: number): Promise<Entity> {
 export async function lookupEntityByVies(
   nif: string,
 ): Promise<{ name?: string; address?: string; valid: boolean }> {
-  const response = await api.get(`/vies/${encodeURIComponent(nif)}`)
+  const response = await api.get('/vies/validate', {
+    params: { nif },
+  })
   return (response.data?.data ?? response.data) as { name?: string; address?: string; valid: boolean }
 }

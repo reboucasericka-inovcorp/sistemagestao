@@ -74,7 +74,7 @@ export async function getSupplierOrdersOptions(): Promise<Array<{ id: number; nu
   return payload.map((item) => ({ id: item.id, number: item.number }))
 }
 
-export function downloadInvoiceFile(_invoiceId: number, fileId: number): void {
+export function downloadInvoiceFile(invoiceId: number, fileId: number): void {
   const baseUrl = String(api.defaults.baseURL ?? '').replace(/\/+$/, '')
-  window.open(`${baseUrl}/digital-files/${fileId}/download`, '_blank')
+  window.open(`${baseUrl}/supplier-invoices/${invoiceId}/files/${fileId}/download`, '_blank')
 }
