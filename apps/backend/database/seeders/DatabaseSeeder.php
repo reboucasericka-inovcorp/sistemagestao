@@ -17,5 +17,6 @@ class DatabaseSeeder extends Seeder
         $this->call(ContactFunctionSeeder::class);
         $this->call(AccessSeeder::class);
         $this->call(CleanupViewPermissionsSeeder::class);
+        $this->call(RolePermissionSeeder::class);
     }
 }

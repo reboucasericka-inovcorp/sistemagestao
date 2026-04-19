@@ -33,6 +33,13 @@ class StoreEntityRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'nif.unique' => 'Este NIF já está registado.',
+        ];
+    }
+
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {

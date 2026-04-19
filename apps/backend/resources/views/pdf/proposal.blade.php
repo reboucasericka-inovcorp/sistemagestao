@@ -1,214 +1,352 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: DejaVu Sans, sans-serif;
-            font-size: 11px;
-            color: #111;
-            margin: 22px 28px;
-        }
-        .top-grid {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .top-grid td {
-            vertical-align: top;
-        }
-        .logo {
-            max-width: 155px;
-            max-height: 90px;
-        }
-        .doc-head {
-            text-align: right;
-            font-size: 14px;
-            font-weight: bold;
-            line-height: 1.3;
-        }
-        .client-block {
-            margin-top: 16px;
-            line-height: 1.45;
-            font-size: 12px;
-            font-weight: 700;
-        }
-        .meta-grid {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 14px;
-            font-size: 10px;
-        }
-        .meta-grid td {
-            width: 50%;
-            vertical-align: top;
-        }
-        .meta-table {
-            width: 56%;
-            border-collapse: collapse;
-        }
-        .meta-table th,
-        .meta-table td {
-            border-top: 1px solid #1c1c1c;
-            border-bottom: 1px solid #1c1c1c;
-            border-left: 0;
-            border-right: 0;
-            padding: 2px 4px;
-            text-align: center;
-        }
-        .meta-table th {
-            font-weight: 700;
-        }
-        .title-bar {
-            margin-top: 10px;
-            border: 1px solid #8c8c8c;
-            background: #dedede;
-            text-align: center;
-            font-size: 20px;
-            font-weight: 700;
-            line-height: 28px;
-            height: 28px;
-        }
-        .service-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 6px;
-            font-size: 10px;
-        }
-        .service-table td {
-            border: 0;
-            border-bottom: 1px solid #1f1f1f;
-            padding: 3px 4px;
-        }
-        .service-line-title {
-            font-weight: 700;
-            font-size: 14px;
-        }
-        .service-right {
-            text-align: right;
-            white-space: nowrap;
-        }
-        .desc {
-            margin-top: 12px;
-            margin-left: 72px;
-            font-size: 10px;
-            line-height: 1.35;
-            width: 78%;
-        }
-        .two-cols {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 18px;
-        }
-        .two-cols td {
-            vertical-align: top;
-            width: 50%;
-            padding-right: 12px;
-        }
-        .section-title {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            border-bottom: 1px solid #1c1c1c;
-            line-height: 1.15;
-            padding-bottom: 2px;
-        }
-        .terms {
-            font-size: 10px;
-            line-height: 1.45;
-        }
-        .terms strong {
-            font-weight: 700;
-        }
-        .totals {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
-        }
-        .totals td {
-            border-bottom: 1px solid #1c1c1c;
-            padding: 3px 4px;
-        }
-        .totals .label {
-            width: 62%;
-        }
-        .totals .value {
-            text-align: right;
-            width: 38%;
-            white-space: nowrap;
-        }
-        .totals .strong {
-            font-weight: 700;
-        }
-        .doc-note {
-            margin-top: 7px;
-            text-align: center;
-            font-size: 12px;
-            font-weight: 700;
-        }
-        .footer {
-            position: fixed;
-            left: 28px;
-            right: 28px;
-            bottom: 16px;
-            font-size: 10px;
-            line-height: 1.35;
-        }
-    </style>
+<meta charset="UTF-8">
+<style>
+body {
+    font-family: DejaVu Sans, sans-serif;
+    font-size: 9.5px;
+    color: #000;
+    margin: 16px 22px 36px 22px;
+}
+
+.head-grid {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.head-grid td {
+    vertical-align: top;
+}
+
+.head-right {
+    text-align: right;
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1.15;
+}
+
+.logo {
+    max-height: 70px;
+}
+
+.client {
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1.3;
+}
+
+.meta-wrap {
+    width: 100%;
+    margin-top: 8px;
+    border-collapse: collapse;
+}
+
+.meta-wrap > tbody > tr > td {
+    width: 50%;
+    vertical-align: top;
+    padding: 0;
+}
+
+.meta-inner {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.meta-inner th,
+.meta-inner td {
+    border-top: 1px solid #000;
+    border-bottom: 1px solid #000;
+    text-align: center;
+    padding: 2px 3px;
+}
+
+.meta-inner-right {
+    margin-left: auto;
+}
+
+.title-bar {
+    margin-top: 8px;
+    border: 1px solid #999;
+    background: #e5e5e5;
+    text-align: center;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 2px 0;
+    line-height: 1.2;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+}
+
+.table thead {
+    display: table-header-group;
+}
+
+.table tbody {
+    display: table-row-group;
+}
+
+.table tbody tr {
+    page-break-inside: avoid;
+}
+
+.table th {
+    border-bottom: 1px solid #000;
+    text-align: left;
+    padding: 3px 4px;
+    font-size: 8.5px;
+    font-weight: bold;
+}
+
+.table td {
+    border-bottom: 1px solid #000;
+    padding: 3px 4px;
+    font-size: 8.5px;
+}
+
+.right {
+    text-align: right;
+}
+
+.desc {
+    margin-top: 6px;
+    font-size: 8.5px;
+    line-height: 1.25;
+}
+
+.two-cols {
+    width: 100%;
+    margin-top: 10px;
+    border-collapse: collapse;
+}
+
+.two-cols td {
+    width: 50%;
+    vertical-align: top;
+    padding: 0 6px 0 0;
+}
+
+.two-cols td:last-child {
+    padding: 0 0 0 6px;
+}
+
+.section-title {
+    font-size: 12px;
+    font-weight: bold;
+    border-bottom: 2px solid #000;
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+}
+
+.terms {
+    font-size: 9px;
+    line-height: 1.32;
+}
+
+.terms-sep {
+    border-bottom: 1px solid #000;
+    margin-top: 6px;
+    height: 1px;
+}
+
+.totals {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.totals td {
+    border-bottom: 1px solid #000;
+    padding: 2px 4px;
+    font-size: 9.5px;
+}
+
+.totals .label {
+    width: 55%;
+}
+
+.totals .percent {
+    width: 15%;
+    text-align: center;
+}
+
+.totals .value {
+    width: 30%;
+    text-align: right;
+}
+
+.totals .total-final td {
+    font-weight: bold;
+    font-size: 10px;
+    border-top: 1px solid #000;
+}
+
+.totals .total-final .label,
+.totals .total-final .percent {
+    background-color: #e4e4e4;
+}
+
+.totals .total-final .value {
+    background-color: #d8d8d8;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.doc-note {
+    margin-top: 6px;
+    margin-bottom: 4px;
+    text-align: center;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+.mb-sep {
+    border-top: 1px solid #000;
+    margin: 8px 0;
+}
+
+.mb-box {
+    margin-top: 4px;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.mb-box td {
+    vertical-align: middle;
+    padding: 0;
+}
+
+.mb-logo img {
+    height: 35px;
+}
+
+.mb-data {
+    font-size: 9.5px;
+    line-height: 1.35;
+    padding-left: 6px;
+}
+
+.mb-fallback {
+    font-size: 8px;
+    font-weight: bold;
+    line-height: 1.15;
+}
+
+.footer {
+    position: fixed;
+    bottom: 22px;
+    left: 22px;
+    right: 110px;
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.footer-title {
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+</style>
 </head>
+
 <body>
+
 @php
     $logoPath = null;
-    if (!empty($company->logo_path)) {
-        $resolvedPath = public_path('storage/' . ltrim($company->logo_path, '/'));
+    if (!empty($company?->logo_path)) {
+        $resolvedPath = public_path('storage/' . ltrim((string) $company->logo_path, '/'));
         if (file_exists($resolvedPath)) {
             $logoPath = $resolvedPath;
         }
     }
-    $proposalNumber = (string) ($proposal->number ?? '-');
-    $proposalDate = !empty($proposal->proposal_date) ? \Carbon\Carbon::parse($proposal->proposal_date)->format('d M Y') : '-';
-    $validUntil = !empty($proposal->valid_until) ? \Carbon\Carbon::parse($proposal->valid_until)->format('d/m/Y') : '-';
-    $clientId = $proposal->client->number ?? $proposal->client->id ?? '-';
-    $clientVat = $proposal->client->vat ?? $proposal->client->tax_number ?? '-';
+
     $baseTotal = (float) ($proposal->total_amount ?? 0);
-    $vatRate = 23.00;
-    $vatValue = $baseTotal * ($vatRate / 100);
+    $vatValue = 0.0;
+    $ratesSeen = [];
+
+    foreach ($proposal->items as $pdfItem) {
+        $rate = (float) ($pdfItem->article?->vat?->rate ?? 23);
+        $ratesSeen[(string) $rate] = $rate;
+        $lineEx = (float) ($pdfItem->total ?? 0);
+        $vatValue += $lineEx * ($rate / 100);
+    }
+
+    $ratesList = array_values($ratesSeen);
+    sort($ratesList);
     $grandTotal = $baseTotal + $vatValue;
+
+    if (count($ratesList) === 1) {
+        $vatRatePercent = number_format($ratesList[0], 2, ',', '.').' %';
+    } elseif (count($ratesList) === 0) {
+        $vatRatePercent = number_format(23.0, 2, ',', '.').' %';
+    } else {
+        $vatRatePercent = '—';
+    }
+
+    $proposalDateFormatted = \Carbon\Carbon::parse($proposal->proposal_date)->format('d/m/Y');
+    $validUntilFormatted = $proposal->valid_until
+        ? \Carbon\Carbon::parse($proposal->valid_until)->format('d/m/Y')
+        : '';
+
+    $multibancoValor = $grandTotal > 0 ? $grandTotal / 2 : 0;
+    $mbImagePath = public_path('images/mb.png');
+    $mbImageExists = file_exists($mbImagePath);
+
+    $companyAddressLine = trim((string) ($company->address ?? ''));
+    $companyPostalCity = trim(
+        trim((string) ($company->postal_code ?? '')).' '.trim((string) ($company->city ?? ''))
+    );
 @endphp
 
-<table class="top-grid">
+<table class="head-grid">
     <tr>
-        <td>
-            @if($logoPath)
-                <img src="{{ $logoPath }}" class="logo" alt="Logo">
-            @else
-                <div style="font-weight:700;font-size:20px;">{{ $company->name ?? 'EMPRESA' }}</div>
+        <td style="width:60%;">
+            @if($logoPath && file_exists($logoPath))
+                <img src="{{ $logoPath }}" class="logo" alt="">
             @endif
         </td>
-        <td class="doc-head">
+        <td class="head-right" style="width:40%;">
             ORÇAMENTO<br>
-            {{ $proposalNumber }}
+            {{ $proposal->number }}
         </td>
     </tr>
 </table>
 
-<div class="client-block">
-    {{ strtoupper((string) ($proposal->client->name ?? 'CLIENTE')) }}<br>
+<div class="client">
+    {{ strtoupper((string) ($proposal->client->name ?? '')) }}<br>
     {{ $proposal->client->address ?? '' }}<br>
-    {{ strtoupper(trim(($proposal->client->city ?? '') . ' ' . ($proposal->client->postal_code ?? ''))) }}
+    {{ strtoupper(trim((string) (($proposal->client->postal_code ?? '').' '.($proposal->client->city ?? '')))) }}
 </div>
 
-<table class="meta-grid">
+<table class="meta-wrap">
     <tr>
         <td>
-            <table class="meta-table">
-                <tr><th>Cliente N.º</th><th>Contribuinte</th></tr>
-                <tr><td>{{ $clientId }}</td><td>{{ $clientVat }}</td></tr>
+            <table class="meta-inner">
+                <tr>
+                    <th>Cliente Nº</th>
+                    <th>Contribuinte</th>
+                </tr>
+                <tr>
+                    <td>{{ $proposal->client->number }}</td>
+                    <td>{{ $proposal->client->vat ?? $proposal->client->tax_number ?? '' }}</td>
+                </tr>
             </table>
         </td>
         <td style="text-align:right;">
-            <table class="meta-table" style="margin-left:auto;">
-                <tr><th>Edição</th><th>de</th></tr>
-                <tr><td>1</td><td>{{ $proposalDate }}</td></tr>
+            <table class="meta-inner meta-inner-right">
+                <tr>
+                    <th>Edição</th>
+                    <th>de</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>{{ $proposalDateFormatted }}</td>
+                </tr>
             </table>
         </td>
     </tr>
@@ -216,30 +354,36 @@
 
 <div class="title-bar">PEDIDO #</div>
 
-<table class="service-table">
-    <tr>
-        <td class="service-line-title">1. SERVIÇO</td>
-        <td class="service-right strong">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
-    </tr>
-    @foreach($proposal->items as $item)
+<table class="table">
+    <thead>
         <tr>
-            <td>
-                1.{{ $loop->iteration }}
-                {{ $item->article->name ?? 'Serviço' }}
-            </td>
-            <td class="service-right">
-                {{ number_format((float) ($item->quantity ?? 0), 2, ',', '.') }} Un &nbsp;&nbsp;
-                {{ number_format((float) ($item->cost_price ?? 0), 2, ',', '.') }} € &nbsp;&nbsp;
-                {{ number_format((float) ($item->total ?? 0), 2, ',', '.') }} €
-            </td>
+            <th style="width:42%;">Descrição</th>
+            <th class="right" style="width:14%;">Quantidade</th>
+            <th class="right" style="width:14%;">Desconto</th>
+            <th class="right" style="width:15%;">Preço</th>
+            <th class="right" style="width:15%;">Total</th>
         </tr>
-    @endforeach
+    </thead>
+    <tbody>
+        @foreach($proposal->items as $item)
+        @php
+            $ref = trim((string) ($item->article->reference ?? ''));
+            $lineLabel = $ref !== '' ? $ref.' | '.$item->article->name : $item->article->name;
+        @endphp
+        <tr>
+            <td>{{ $lineLabel }}</td>
+            <td class="right">{{ number_format((float) $item->quantity, 2, ',', '.') }} Un</td>
+            <td class="right">{{ number_format(0, 2, ',', '.') }} %</td>
+            <td class="right">{{ number_format((float) $item->cost_price, 2, ',', '.') }} €</td>
+            <td class="right">{{ number_format((float) $item->total, 2, ',', '.') }} €</td>
+        </tr>
+        @endforeach
+    </tbody>
 </table>
 
 <div class="desc">
-    O serviço consiste na preparação e execução dos trabalhos descritos neste documento, garantindo
-    uma intervenção conforme o acordado com o cliente.<br><br>
-    <strong>Deslocação não incluída:</strong> O valor do serviço não abrange deslocação.
+    O serviço consiste na preparação e execução conforme descrito acima.<br>
+    <strong>Deslocação não incluída:</strong> O valor do serviço não abrange deslocação, salvo acordo expresso em proposta.
 </div>
 
 <table class="two-cols">
@@ -247,35 +391,89 @@
         <td>
             <div class="section-title">Termos e Condições</div>
             <div class="terms">
-                <strong>Prazo Entrega</strong>&nbsp;&nbsp;30 DIAS<br>
+                <strong>Prazo Entrega</strong> 30 DIAS<br><br>
+
                 <strong>Condições de Pagamento:</strong><br>
-                &nbsp;&nbsp;- Adjudicação&nbsp;&nbsp;50,00 %<br>
-                &nbsp;&nbsp;- Conclusão&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;50,00 %<br>
-                <strong>Válido até</strong>&nbsp;&nbsp;{{ $validUntil }}<br>
-                <strong>* Valor sem IVA incluído</strong>
+                - Adjudicação 50,00 %<br>
+                - Conclusão 50,00 %<br><br>
+
+                <strong>Válido até:</strong> {{ $validUntilFormatted }}<br><br>
+
+                <strong>* Valor sem IVA incluído</strong><br><br>
+
+                IBAN PT50 0000 0000 0000 0000 0000 0 (Millennium BCP)<br>
+                IBAN PT50 0000 0000 0000 0000 0000 0 (Bankinter)
+
+                <div class="terms-sep"></div>
             </div>
         </td>
         <td>
             <table class="totals">
-                <tr><td class="label">Subtotal</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
-                <tr><td class="label">Desconto Linha</td><td class="value">0,00 €</td></tr>
-                <tr><td class="label">Desconto Geral</td><td class="value">0,00 €</td></tr>
-                <tr><td class="label">Total sem IVA</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
-                <tr><td class="label">IVA {{ number_format($vatRate, 2, ',', '.') }} %</td><td class="value">{{ number_format($vatValue, 2, ',', '.') }} €</td></tr>
-                <tr><td class="label strong">Total com IVA</td><td class="value strong">{{ number_format($grandTotal, 2, ',', '.') }} €</td></tr>
+                <tr>
+                    <td class="label">Subtotal</td>
+                    <td class="percent"></td>
+                    <td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
+                </tr>
+                <tr>
+                    <td class="label">Desconto Linha</td>
+                    <td class="percent"></td>
+                    <td class="value">{{ number_format(0, 2, ',', '.') }} €</td>
+                </tr>
+                <tr>
+                    <td class="label">Desconto Geral</td>
+                    <td class="percent">{{ number_format(0, 2, ',', '.') }} %</td>
+                    <td class="value">{{ number_format(0, 2, ',', '.') }} €</td>
+                </tr>
+                <tr>
+                    <td class="label bold">Total sem IVA</td>
+                    <td class="percent"></td>
+                    <td class="value bold">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
+                </tr>
+                <tr>
+                    <td class="label">IVA</td>
+                    <td class="percent">{{ $vatRatePercent }}</td>
+                    <td class="value">{{ number_format($vatValue, 2, ',', '.') }} €</td>
+                </tr>
+                <tr class="total-final">
+                    <td class="label">Total com IVA</td>
+                    <td class="percent"></td>
+                    <td class="value">{{ number_format($grandTotal, 2, ',', '.') }} €</td>
+                </tr>
             </table>
+
             <div class="doc-note">Este documento não serve de fatura</div>
+
+            <div class="mb-sep"></div>
+
+            <table class="mb-box">
+                <tr>
+                    <td style="width:32%;">
+                        @if($mbImageExists)
+                            <img src="{{ $mbImagePath }}" class="mb-logo" alt="Multibanco">
+                        @else
+                            <span class="mb-fallback">MB<br>MULTIBANCO</span>
+                        @endif
+                    </td>
+                    <td class="mb-data">
+                        Entidade&nbsp;&nbsp;&nbsp;&nbsp;11 473<br>
+                        Referência&nbsp;&nbsp;969 006 950<br>
+                        Valor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;50,00 % {{ number_format($multibancoValor, 2, ',', '.') }} €
+                    </td>
+                </tr>
+            </table>
         </td>
     </tr>
 </table>
 
 <div class="footer">
-    Contactos<br>
-    {{ $company->address ?? '-' }}<br>
-    @if(!empty($company->phone))T {{ $company->phone }} @endif
-    @if(!empty($company->mobile))&nbsp;&nbsp;M {{ $company->mobile }}@endif<br>
-    @if(!empty($company->email)){{ $company->email }}<br>@endif
-    @if(!empty($company->website)){{ $company->website }}@endif
+    <div class="footer-title">Contactos</div>
+    {{ $companyAddressLine }}<br>
+    @if($companyPostalCity !== '')
+        {{ $companyPostalCity }}<br>
+    @endif
+    {{ $company->email ?? '' }}<br>
+    {{ $company->phone ?? '' }}
 </div>
+
 </body>
 </html>

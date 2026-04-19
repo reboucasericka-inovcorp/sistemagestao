@@ -5,16 +5,16 @@
     <style>
         body {
             font-family: DejaVu Sans, sans-serif;
-            font-size: 11px;
+            font-size: 9.5px;
             color: #111;
-            margin: 22px 28px;
+            margin: 16px 22px;
         }
         .top-grid { width: 100%; border-collapse: collapse; }
         .top-grid td { vertical-align: top; }
-        .logo { max-width: 155px; max-height: 90px; }
-        .doc-head { text-align: right; font-size: 14px; font-weight: bold; line-height: 1.3; }
-        .client-block { margin-top: 16px; line-height: 1.45; font-size: 12px; font-weight: 700; }
-        .meta-grid { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 10px; }
+        .logo { max-width: 145px; max-height: 70px; }
+        .doc-head { text-align: right; font-size: 13px; font-weight: bold; line-height: 1.15; }
+        .client-block { margin-top: 10px; line-height: 1.3; font-size: 10px; font-weight: 700; }
+        .meta-grid { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 9px; }
         .meta-grid td { width: 50%; vertical-align: top; }
         .meta-table { width: 56%; border-collapse: collapse; }
         .meta-table th, .meta-table td {
@@ -22,48 +22,53 @@
             border-bottom: 1px solid #1c1c1c;
             border-left: 0;
             border-right: 0;
-            padding: 2px 4px;
+            padding: 2px 3px;
             text-align: center;
         }
         .title-bar {
-            margin-top: 10px;
+            margin-top: 8px;
             border: 1px solid #8c8c8c;
             background: #dedede;
             text-align: center;
-            font-size: 20px;
+            font-size: 10px;
             font-weight: 700;
-            line-height: 28px;
-            height: 28px;
+            line-height: 1.2;
+            padding: 2px 0;
         }
-        .service-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10px; }
+        .service-table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 9px; }
+        .service-table th {
+            border-bottom: 1px solid #1f1f1f;
+            text-align: left;
+            padding: 3px 4px;
+            font-weight: 700;
+        }
         .service-table td { border: 0; border-bottom: 1px solid #1f1f1f; padding: 3px 4px; }
-        .service-line-title { font-weight: 700; font-size: 14px; }
         .service-right { text-align: right; white-space: nowrap; }
-        .two-cols { width: 100%; border-collapse: collapse; margin-top: 18px; }
+        .two-cols { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .two-cols td { vertical-align: top; width: 50%; padding-right: 12px; }
         .section-title {
-            font-size: 28px;
+            font-size: 12px;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 3px;
             border-bottom: 1px solid #1c1c1c;
-            line-height: 1.15;
-            padding-bottom: 2px;
+            line-height: 1.2;
+            padding-bottom: 1px;
         }
-        .terms { font-size: 10px; line-height: 1.45; }
+        .terms { font-size: 9px; line-height: 1.25; }
         .terms strong { font-weight: 700; }
-        .totals { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .totals td { border-bottom: 1px solid #1c1c1c; padding: 3px 4px; }
+        .totals { width: 100%; border-collapse: collapse; font-size: 9px; }
+        .totals td { border-bottom: 1px solid #1c1c1c; padding: 2px 3px; }
         .totals .label { width: 62%; }
         .totals .value { text-align: right; width: 38%; white-space: nowrap; }
         .totals .strong { font-weight: 700; }
-        .doc-note { margin-top: 7px; text-align: center; font-size: 12px; font-weight: 700; }
+        .doc-note { margin-top: 4px; text-align: center; font-size: 10px; font-weight: 700; }
         .footer {
             position: fixed;
-            left: 28px;
-            right: 28px;
-            bottom: 16px;
-            font-size: 10px;
-            line-height: 1.35;
+            left: 22px;
+            right: 22px;
+            bottom: 12px;
+            font-size: 9px;
+            line-height: 1.25;
         }
     </style>
 </head>
@@ -128,10 +133,16 @@
 <div class="title-bar">PEDIDO #</div>
 
 <table class="service-table">
+    <thead>
     <tr>
-        <td class="service-line-title">1. SERVIÇO</td>
-        <td class="service-right">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
+        <th style="width:45%;">Descrição</th>
+        <th class="service-right" style="width:14%;">Quantidade</th>
+        <th class="service-right" style="width:14%;">Desconto</th>
+        <th class="service-right" style="width:13%;">Preço</th>
+        <th class="service-right" style="width:14%;">Total</th>
     </tr>
+    </thead>
+    <tbody>
     @foreach($order->items as $item)
         <tr>
             <td>
@@ -141,13 +152,13 @@
                     - {{ $item->supplier->name }}
                 @endif
             </td>
-            <td class="service-right">
-                {{ number_format((float) ($item->quantity ?? 0), 2, ',', '.') }} Un &nbsp;&nbsp;
-                {{ number_format((float) ($item->cost_price ?? 0), 2, ',', '.') }} € &nbsp;&nbsp;
-                {{ number_format((float) ($item->total ?? 0), 2, ',', '.') }} €
-            </td>
+            <td class="service-right">{{ number_format((float) ($item->quantity ?? 0), 2, ',', '.') }}</td>
+            <td class="service-right">0,00 €</td>
+            <td class="service-right">{{ number_format((float) ($item->cost_price ?? 0), 2, ',', '.') }} €</td>
+            <td class="service-right">{{ number_format((float) ($item->total ?? 0), 2, ',', '.') }} €</td>
         </tr>
     @endforeach
+    </tbody>
 </table>
 
 <table class="two-cols">

@@ -6,6 +6,8 @@ use App\Models\Proposals\ProposalModel;
 use App\Services\Orders\ClientOrderService;
 use App\Services\Settings\Company\CompanyService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Dompdf\Canvas;
+use Dompdf\FontMetrics;
 use Carbon\Carbon;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -135,15 +137,32 @@ class ProposalService
     public function generatePdf(int $id)
     {
         $proposal = ProposalModel::query()
-            ->with(['client', 'items.article'])
+            ->with(['client', 'items.article.vat'])
             ->findOrFail($id);
 
         $company = app(CompanyService::class)->getCurrent();
 
-        return Pdf::loadView('pdf.proposal', [
+        $pdf = Pdf::loadView('pdf.proposal', [
             'proposal' => $proposal,
             'company' => $company,
+        ])->setPaper('a4', 'portrait');
+
+        $pdf->setCallbacks([
+            [
+                'event' => 'end_document',
+                'f' => static function (int $pageNumber, int $pageCount, Canvas $canvas, FontMetrics $fontMetrics): void {
+                    $font = $fontMetrics->getFont('DejaVu Sans', 'normal');
+                    if ($font === null) {
+                        return;
+                    }
+
+                    $label = sprintf('Pág %d de %d', $pageNumber, $pageCount);
+                    $canvas->text($canvas->get_width() - 72, $canvas->get_height() - 18, $label, $font, 9);
+                },
+            ],
         ]);
+
+        return $pdf;
     }
 
     private function sumItemsTotal(array $items): string

@@ -27,6 +27,10 @@ class PermissionCatalog
             'bank-accounts',
             'customer-accounts',
             'supplier-invoices',
+            'proposals',
+            'client-orders',
+            'supplier-orders',
+            'work-orders',
         ];
     }
 

@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\WorkOrders\WorkOrderControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\CalendarActions\CalendarActionControllerAPI;
 use App\Http\Controllers\Api\V1\Entities\EntityControllerAPI;
 use App\Http\Controllers\Api\V1\Entities\ViesController;
+use App\Http\Controllers\Api\V1\External\ViesControllerAPI;
 use App\Http\Controllers\Api\V1\DigitalArchive\DigitalFileControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\CalendarTypes\CalendarTypeControllerAPI;
 use App\Http\Controllers\Api\V1\Settings\Company\CompanyControllerAPI;
@@ -29,7 +30,8 @@ use Illuminate\Support\Facades\Hash;
 
 Route::prefix('v1')->group(function (): void {
     // Rotas públicas (sem autenticação)
-    Route::get('company', [CompanyControllerAPI::class, 'show']);
+    Route::get('company', [CompanyControllerAPI::class, 'show'])
+        ->middleware(['auth:sanctum', 'permission:company.read']);
 
     Route::post('/login', function (Request $request) {
         $request->validate([
@@ -83,6 +85,7 @@ Route::prefix('v1')->group(function (): void {
             ->middlewareFor('store', 'permission:entities.create')
             ->middlewareFor('update', 'permission:entities.update')
             ->middlewareFor('destroy', 'permission:entities.delete');
+        Route::get('vies/validate', ViesControllerAPI::class);
         Route::get('vies/{nif}', [ViesController::class, 'show'])->middleware('permission:entities.read');
 
         Route::get('countries', [CountryControllerAPI::class, 'index'])->middleware('permission:countries.read');
@@ -143,24 +146,24 @@ Route::prefix('v1')->group(function (): void {
         Route::get('roles-permissions-catalog', [RoleControllerAPI::class, 'permissionsCatalog'])
             ->middleware('permission:roles.read');
 
-        Route::get('proposals', [ProposalControllerAPI::class, 'index']);
-        Route::get('proposals/{id}', [ProposalControllerAPI::class, 'show']);
-        Route::post('proposals', [ProposalControllerAPI::class, 'store']);
-        Route::put('proposals/{id}', [ProposalControllerAPI::class, 'update']);
-        Route::post('proposals/{id}/convert', [ProposalControllerAPI::class, 'convert']);
-        Route::get('proposals/{id}/pdf', [ProposalControllerAPI::class, 'pdf']);
+        Route::get('proposals', [ProposalControllerAPI::class, 'index'])->middleware('permission:proposals.read');
+        Route::get('proposals/{id}', [ProposalControllerAPI::class, 'show'])->middleware('permission:proposals.read');
+        Route::post('proposals', [ProposalControllerAPI::class, 'store'])->middleware('permission:proposals.create');
+        Route::put('proposals/{id}', [ProposalControllerAPI::class, 'update'])->middleware('permission:proposals.update');
+        Route::post('proposals/{id}/convert', [ProposalControllerAPI::class, 'convert'])->middleware('permission:proposals.update');
+        Route::get('proposals/{id}/pdf', [ProposalControllerAPI::class, 'pdf'])->middleware('permission:proposals.read');
 
-        Route::get('client-orders', [ClientOrderControllerAPI::class, 'index']);
-        Route::get('client-orders/{id}', [ClientOrderControllerAPI::class, 'show']);
-        Route::post('client-orders', [ClientOrderControllerAPI::class, 'store']);
-        Route::put('client-orders/{id}', [ClientOrderControllerAPI::class, 'update']);
-        Route::post('client-orders/{id}/convert-suppliers', [ClientOrderControllerAPI::class, 'convert']);
-        Route::get('client-orders/{id}/pdf', [ClientOrderControllerAPI::class, 'pdf']);
+        Route::get('client-orders', [ClientOrderControllerAPI::class, 'index'])->middleware('permission:client-orders.read');
+        Route::get('client-orders/{id}', [ClientOrderControllerAPI::class, 'show'])->middleware('permission:client-orders.read');
+        Route::post('client-orders', [ClientOrderControllerAPI::class, 'store'])->middleware('permission:client-orders.create');
+        Route::put('client-orders/{id}', [ClientOrderControllerAPI::class, 'update'])->middleware('permission:client-orders.update');
+        Route::post('client-orders/{id}/convert-suppliers', [ClientOrderControllerAPI::class, 'convert'])->middleware('permission:client-orders.update');
+        Route::get('client-orders/{id}/pdf', [ClientOrderControllerAPI::class, 'pdf'])->middleware('permission:client-orders.read');
 
-        Route::get('supplier-orders', [SupplierOrderControllerAPI::class, 'index']);
-        Route::get('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'show']);
-        Route::post('supplier-orders', [SupplierOrderControllerAPI::class, 'store']);
-        Route::put('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'update']);
+        Route::get('supplier-orders', [SupplierOrderControllerAPI::class, 'index'])->middleware('permission:supplier-orders.read');
+        Route::get('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'show'])->middleware('permission:supplier-orders.read');
+        Route::post('supplier-orders', [SupplierOrderControllerAPI::class, 'store'])->middleware('permission:supplier-orders.create');
+        Route::put('supplier-orders/{id}', [SupplierOrderControllerAPI::class, 'update'])->middleware('permission:supplier-orders.update');
 
         Route::get('bank-accounts', [BankAccountControllerAPI::class, 'index'])->middleware('permission:bank-accounts.read');
         Route::get('bank-accounts/{id}', [BankAccountControllerAPI::class, 'show'])->middleware('permission:bank-accounts.read');
@@ -180,11 +183,11 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('supplier-invoices/{id}', [SupplierInvoiceControllerAPI::class, 'destroy'])->middleware('permission:supplier-invoices.delete');
         Route::get('supplier-invoices/{id}/files/{fileId}/download', [SupplierInvoiceControllerAPI::class, 'download'])->middleware('permission:supplier-invoices.read');
 
-        Route::get('work-orders', [WorkOrderControllerAPI::class, 'index']);
-        Route::get('work-orders/{id}', [WorkOrderControllerAPI::class, 'show']);
-        Route::post('work-orders', [WorkOrderControllerAPI::class, 'store']);
-        Route::put('work-orders/{id}', [WorkOrderControllerAPI::class, 'update']);
-        Route::post('work-orders/from-client-order/{id}', [WorkOrderControllerAPI::class, 'convertFromClientOrder']);
+        Route::get('work-orders', [WorkOrderControllerAPI::class, 'index'])->middleware('permission:work-orders.read');
+        Route::get('work-orders/{id}', [WorkOrderControllerAPI::class, 'show'])->middleware('permission:work-orders.read');
+        Route::post('work-orders', [WorkOrderControllerAPI::class, 'store'])->middleware('permission:work-orders.create');
+        Route::put('work-orders/{id}', [WorkOrderControllerAPI::class, 'update'])->middleware('permission:work-orders.update');
+        Route::post('work-orders/from-client-order/{id}', [WorkOrderControllerAPI::class, 'convertFromClientOrder'])->middleware('permission:work-orders.create');
 
         Route::get('digital-files', [DigitalFileControllerAPI::class, 'index'])->middleware('permission:digital-files.read');
         Route::post('digital-files', [DigitalFileControllerAPI::class, 'store'])->middleware('permission:digital-files.create');
