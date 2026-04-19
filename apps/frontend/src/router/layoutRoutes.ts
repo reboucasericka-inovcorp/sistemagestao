@@ -26,6 +26,13 @@ import { vatRoutes } from '@/modules/settings/vat/routes'
 
 export const layoutChildren: RouteRecordRaw[] = [
   { path: '', redirect: '/clients' },
+  { path: 'logs', redirect: '/settings/logs' },
+  {
+    path: '403',
+    name: 'forbidden',
+    component: () => import('@/modules/auth/pages/ForbiddenPage.vue'),
+    meta: { skipPermissionCheck: true },
+  },
   ...entityRoutes,
   ...contactRoutes,
   ...calendarActionsRoutes,

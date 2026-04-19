@@ -6,18 +6,16 @@ import {
   fetchAuthenticatedUser,
   hasPermission,
 } from '@/modules/auth/services/authService'
-import ForbiddenPage from '@/modules/auth/pages/ForbiddenPage.vue'
 import { authRoutes } from '@/modules/auth/routes'
+import { AUTH_PUBLIC_PATHS, resolveHomeByPermission } from '@/router/resolveHomeByPermission'
 import { layoutChildren } from '@/router/layoutRoutes'
 import { resolvePermissionForPath } from '@/router/routePermissions'
-
-const PUBLIC_PATHS = new Set(['/login', '/forgot-password', '/reset-password', '/403'])
 
 function isPublicRoute(to: RouteLocationNormalized): boolean {
   if (to.meta.public) {
     return true
   }
-  if (PUBLIC_PATHS.has(to.path)) {
+  if (AUTH_PUBLIC_PATHS.has(to.path)) {
     return true
   }
   return false
@@ -25,7 +23,6 @@ function isPublicRoute(to: RouteLocationNormalized): boolean {
 
 const routes = [
   ...authRoutes,
-  { path: '/403', name: 'forbidden', component: ForbiddenPage, meta: { public: true } },
   { path: '/finance', redirect: '/supplier-invoices' },
   { path: '/digital-files', redirect: '/digital-archive' },
   {
@@ -61,14 +58,15 @@ router.beforeEach(async (to) => {
       return true
     }
 
-    return { path: '/clients' }
+    const user = await fetchAuthenticatedUser()
+    return { path: resolveHomeByPermission(user?.permissions ?? []) }
   }
 
   if (isPublicRoute(to)) {
     if (to.path === '/login') {
       const user = await fetchAuthenticatedUser()
       if (user) {
-        return { path: '/clients' }
+        return { path: resolveHomeByPermission(user.permissions ?? []) }
       }
     }
 
@@ -85,13 +83,18 @@ router.beforeEach(async (to) => {
   }
 
   const metaPermission = to.meta.permission
-  const requiredPermission =
-    typeof metaPermission === 'string' && metaPermission.length > 0
-      ? metaPermission
-      : resolvePermissionForPath(to.path)
+  let requiredPermission: string | undefined
+  if (typeof metaPermission === 'string' && metaPermission.length > 0) {
+    requiredPermission = metaPermission
+  } else {
+    requiredPermission = resolvePermissionForPath(to.path)
+  }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {
-    return { name: 'forbidden', query: { from: to.fullPath } }
+    return {
+      path: resolveHomeByPermission(user.permissions ?? []),
+      replace: true,
+    }
   }
 
   return true

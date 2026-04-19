@@ -24,17 +24,25 @@ const navItems: NavItem[] = [
   { label: 'Clientes', to: '/clients', permission: 'entities.read' },
   { label: 'Fornecedores', to: '/suppliers', permission: 'entities.read' },
   { label: 'Contactos', to: '/contacts', permission: 'contacts.read' },
-  { label: 'Propostas', to: '/proposals' },
+  { label: 'Propostas', to: '/proposals', permission: 'proposals.read' },
   { label: 'Calendário', to: '/calendar', permission: 'calendar-events.read' },
-  { label: 'Encomendas - Clientes', to: '/client-orders' },
-  { label: 'Encomendas - Fornecedores', to: '/supplier-orders' },
-  { label: 'Ordens de Trabalho', to: '/work-orders' },
+  { label: 'Encomendas - Clientes', to: '/client-orders', permission: 'client-orders.read' },
+  { label: 'Encomendas - Fornecedores', to: '/supplier-orders', permission: 'supplier-orders.read' },
+  { label: 'Ordens de Trabalho', to: '/work-orders', permission: 'work-orders.read' },
   {
     label: 'Financeiro',
     children: [
       { label: 'Contas Bancárias', to: '/bank-accounts', permission: 'bank-accounts.read' },
-      { label: 'Conta Corrente Clientes', to: '/customer-accounts', permission: 'customer-accounts.read' },
-      { label: 'Faturas Fornecedores', to: '/supplier-invoices', permission: 'supplier-invoices.read' },
+      {
+        label: 'Conta Corrente Clientes',
+        to: '/customer-accounts',
+        permission: 'customer-accounts.read',
+      },
+      {
+        label: 'Faturas Fornecedores',
+        to: '/supplier-invoices',
+        permission: 'supplier-invoices.read',
+      },
     ],
   },
   { label: 'Arquivo Digital', to: '/digital-archive', permission: 'digital-files.read' },
@@ -54,7 +62,11 @@ const navItems: NavItem[] = [
         to: '/settings/contact-functions',
         permission: 'contact-functions.read',
       },
-      { label: 'Calendário - Tipos', to: '/settings/calendar-types', permission: 'calendar-types.read' },
+      {
+        label: 'Calendário - Tipos',
+        to: '/settings/calendar-types',
+        permission: 'calendar-types.read',
+      },
       {
         label: 'Calendário - Acções',
         to: '/settings/calendar-actions',
@@ -63,7 +75,7 @@ const navItems: NavItem[] = [
       { label: 'Artigos', to: '/settings/articles', permission: 'articles.read' },
       { label: 'Financeiro - IVA', to: '/settings/vat', permission: 'vat.read' },
       { label: 'Logs', to: '/settings/logs', permission: 'logs.read' },
-      { label: 'Empresa', to: '/settings/company', permission: 'company.update' },
+      { label: 'Empresa', to: '/settings/company', permission: 'company.read' },
     ],
   },
 ]
@@ -170,7 +182,22 @@ const handleLogout = async (): Promise<void> => {
 }
 
 onMounted(async () => {
-  await Promise.allSettled([fetchAuthenticatedUser().then((user) => { authenticatedUser.value = user }), loadCompany()])
+  try {
+    const user = await fetchAuthenticatedUser()
+
+    if (!user) {
+      authenticatedUser.value = null
+      return
+    }
+
+    authenticatedUser.value = user
+  } catch {
+    authenticatedUser.value = null
+    return
+  }
+
+  /** Dados da empresa são opcionais para o layout (ex. 403 em GET /company). */
+  await loadCompany()
 })
 </script>
 
@@ -178,7 +205,12 @@ onMounted(async () => {
   <div class="app-layout">
     <aside class="sidebar" aria-label="Navegação principal">
       <header class="brand">
-        <img v-if="companyLogoUrl" :src="companyLogoUrl" alt="Logótipo da empresa" class="brand-logo" />
+        <img
+          v-if="companyLogoUrl"
+          :src="companyLogoUrl"
+          alt="Logótipo da empresa"
+          class="brand-logo"
+        />
         <span v-if="companyName">{{ companyName }}</span>
       </header>
       <nav class="nav-wrapper">
@@ -214,7 +246,6 @@ onMounted(async () => {
             variant="outline"
             class="profile-trigger"
             :aria-expanded="profileMenuOpen"
-            :disabled="!authenticatedUser"
             @click="toggleProfileMenu"
           >
             <span class="profile-name">{{ authenticatedUser?.name }}</span>
@@ -222,7 +253,9 @@ onMounted(async () => {
           </Button>
 
           <div v-if="profileMenuOpen" class="profile-menu">
-            <AppNavLink to="/profile/security" @click="closeProfileMenu">Perfil e Segurança</AppNavLink>
+            <AppNavLink to="/profile/security" @click="closeProfileMenu"
+              >Perfil e Segurança</AppNavLink
+            >
             <button
               type="button"
               class="logout-button"

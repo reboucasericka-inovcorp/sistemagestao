@@ -68,7 +68,7 @@ type PermissionGroupFormData = z.infer<typeof formSchema>
 
 const defaultValues: PermissionGroupFormData = { name: '', is_active: true }
 
-const { setValues, setErrors, values } = useForm<PermissionGroupFormData>({
+const { setValues, setErrors } = useForm<PermissionGroupFormData>({
   validationSchema: toTypedSchema(formSchema),
   initialValues: defaultValues,
 })
@@ -79,7 +79,6 @@ async function applyBackendGroup(payload: PermissionGroup): Promise<void> {
     name: payload.name ?? '',
     is_active: payload.is_active ?? true,
   })
-  console.log('FORM VALUES:', values)
   matrix.value = permissionListToMatrix(payload.permissions ?? [], matrixModules.value)
 }
 
@@ -116,10 +115,7 @@ async function loadGroupIfEditing(): Promise<void> {
     return
   }
   const group = await getPermissionGroupById(groupId.value)
-  console.log('RAW API RESULT:', group)
-  const normalized = (group as PermissionGroup & { data?: PermissionGroup })?.data ?? group
-  console.log('NORMALIZED:', normalized)
-  await applyBackendGroup(normalized as PermissionGroup)
+  await applyBackendGroup(group)
 }
 
 async function onSubmit(values: PermissionGroupFormData): Promise<void> {
@@ -184,7 +180,6 @@ watch(
       await nextTick()
       setValues(defaultValues)
       matrix.value = buildEmptyMatrix(matrixModules.value)
-      console.log('FORM VALUES:', values)
       return
     }
     await loadGroupIfEditing()

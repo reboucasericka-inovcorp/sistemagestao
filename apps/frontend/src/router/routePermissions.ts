@@ -1,6 +1,6 @@
 /**
  * Permissões Spatie alinhadas com `routes/api.php` (middleware permission:*).
- * Rotas sem correspondência aqui ficam só com autenticação no guard (ex.: propostas).
+ * Cobre rotas sem `meta.permission`; perfil usa `skipPermissionCheck` no router.
  */
 export function normalizePath(fullPath: string): string {
   const path = fullPath.split('?')[0] ?? ''
@@ -41,6 +41,54 @@ export function resolvePermissionForPath(fullPath: string): string | undefined {
 
   if (path.startsWith('/calendar')) {
     return 'calendar-events.read'
+  }
+
+  if (path.startsWith('/proposals/create')) {
+    return 'proposals.create'
+  }
+  if (/^\/proposals\/\d+\/edit$/.test(path)) {
+    return 'proposals.update'
+  }
+  if (path.startsWith('/proposals')) {
+    return 'proposals.read'
+  }
+
+  if (path.startsWith('/client-orders/create')) {
+    return 'client-orders.create'
+  }
+  if (/^\/client-orders\/\d+\/edit$/.test(path)) {
+    return 'client-orders.update'
+  }
+  if (path.startsWith('/client-orders')) {
+    return 'client-orders.read'
+  }
+
+  if (path.startsWith('/supplier-orders/create')) {
+    return 'supplier-orders.create'
+  }
+  if (/^\/supplier-orders\/\d+\/edit$/.test(path)) {
+    return 'supplier-orders.update'
+  }
+  if (path.startsWith('/supplier-orders')) {
+    return 'supplier-orders.read'
+  }
+
+  if (path.startsWith('/work-orders/create')) {
+    return 'work-orders.create'
+  }
+  if (/^\/work-orders\/\d+\/edit$/.test(path)) {
+    return 'work-orders.update'
+  }
+  if (path.startsWith('/work-orders')) {
+    return 'work-orders.read'
+  }
+
+  if (path === '/logs' || path.startsWith('/logs/')) {
+    return 'logs.read'
+  }
+
+  if (path.startsWith('/company')) {
+    return 'company.read'
   }
 
   if (path === '/clients/new' || path === '/suppliers/new' || path === '/entities/new') {
@@ -148,7 +196,7 @@ export function resolvePermissionForPath(fullPath: string): string | undefined {
   }
 
   if (path.startsWith('/settings/company')) {
-    return 'company.update'
+    return 'company.read'
   }
 
   return undefined

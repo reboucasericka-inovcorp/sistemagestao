@@ -1,14 +1,26 @@
 import { API_ROUTES } from '@/core/api/apiRoutes'
+import {
+  isCrudAction,
+  normalizePermissionNameFromApi,
+  splitPermissionName,
+} from '@/modules/access-management/permissions/permissionParsing'
 import api from '@/shared/services/api'
-import { CRUD_ACTIONS, type CrudAction, type PermissionGroup, type PermissionMatrix, type UpsertPermissionGroupPayload } from '../types/permissionGroup'
+import { type PermissionGroup, type PermissionMatrix, type UpsertPermissionGroupPayload } from '../types/permissionGroup'
 
 function normalizePermissionGroup(payload: any): PermissionGroup {
   const usersCount = Number(payload?.users_count ?? payload?.related_users_count ?? payload?.related_users ?? 0)
+  const rawPerms = payload?.permissions
+  const permissions: string[] = Array.isArray(rawPerms)
+    ? rawPerms
+        .map((p: unknown) => normalizePermissionNameFromApi(p))
+        .filter((p): p is string => p !== null)
+    : []
+
   return {
     id: Number(payload?.id ?? 0),
     name: String(payload?.name ?? ''),
     is_active: Boolean(payload?.is_active),
-    permissions: Array.isArray(payload?.permissions) ? payload.permissions.map((permission: unknown) => String(permission)) : [],
+    permissions,
     users_count: Number.isFinite(usersCount) ? usersCount : 0,
   }
 }
@@ -37,12 +49,12 @@ export function buildEmptyMatrix(modules: string[]): PermissionMatrix {
 export function permissionListToMatrix(permissions: string[], modules: string[]): PermissionMatrix {
   const matrix = buildEmptyMatrix(modules)
   for (const permission of permissions) {
-    const [moduleName, action] = permission.split('.')
-    if (!moduleName || !action || !(moduleName in matrix)) {
+    const parsed = splitPermissionName(permission)
+    if (!parsed || !(parsed.module in matrix)) {
       continue
     }
-    if (CRUD_ACTIONS.includes(action as CrudAction)) {
-      matrix[moduleName][action as CrudAction] = true
+    if (isCrudAction(parsed.action)) {
+      matrix[parsed.module][parsed.action] = true
     }
   }
   return matrix

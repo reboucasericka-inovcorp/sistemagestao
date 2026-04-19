@@ -1,3 +1,8 @@
+import {
+  isCrudAction,
+  splitPermissionName,
+} from '@/modules/access-management/permissions/permissionParsing'
+
 export const ACCESS_MODULES = [
   'entities',
   'contacts',
@@ -35,11 +40,12 @@ export function buildEmptyPermissionMatrix(): PermissionMatrix {
 export function permissionListToMatrix(permissions: string[]): PermissionMatrix {
   const matrix = buildEmptyPermissionMatrix()
   for (const permission of permissions) {
-    const [moduleName, action] = permission.split('.')
-    if (!moduleName || !action) {
+    const parsed = splitPermissionName(permission)
+    if (!parsed) {
       continue
     }
-    if (moduleName in matrix && action in matrix[moduleName as AccessModule]) {
+    const { module: moduleName, action } = parsed
+    if (moduleName in matrix && isCrudAction(action)) {
       matrix[moduleName as AccessModule][action as AccessAction] = true
     }
   }

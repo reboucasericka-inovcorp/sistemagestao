@@ -66,7 +66,7 @@ type RoleFormData = z.infer<typeof roleSchema>
 
 const defaultValues: RoleFormData = { name: '', is_active: true }
 
-const { setValues, setErrors, values } = useForm<RoleFormData>({
+const { setValues, setErrors } = useForm<RoleFormData>({
   validationSchema: toTypedSchema(roleSchema),
   initialValues: defaultValues,
 })
@@ -77,7 +77,6 @@ async function applyBackendRole(payload: AccessRole): Promise<void> {
     name: payload.name ?? '',
     is_active: payload.is_active ?? true,
   })
-  console.log('FORM VALUES:', values)
   matrix.value = permissionListToMatrix(payload.permissions ?? [])
 }
 
@@ -111,10 +110,7 @@ async function loadRoleIfEditing(): Promise<void> {
     return
   }
   const role = await getRoleById(roleId.value)
-  console.log('RAW API RESULT:', role)
-  const normalized = (role as AccessRole & { data?: AccessRole })?.data ?? role
-  console.log('NORMALIZED:', normalized)
-  await applyBackendRole(normalized as AccessRole)
+  await applyBackendRole(role)
 }
 
 async function onSubmit(values: RoleFormData): Promise<void> {
@@ -184,7 +180,6 @@ watch(
       await nextTick()
       setValues(defaultValues)
       matrix.value = buildEmptyPermissionMatrix()
-      console.log('FORM VALUES:', values)
       return
     }
     await loadRoleIfEditing()

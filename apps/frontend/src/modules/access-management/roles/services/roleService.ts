@@ -1,7 +1,26 @@
 import { API_ROUTES } from '@/core/api/apiRoutes'
+import { normalizePermissionNameFromApi } from '@/modules/access-management/permissions/permissionParsing'
 import { normalizeListResponse } from '@/core/utils/normalizeResponse'
 import api from '@/shared/services/api'
 import type { AccessRole, UpsertAccessRolePayload } from '../types/role'
+
+function normalizeAccessRolePayload(payload: unknown): AccessRole {
+  const p = payload as Record<string, unknown>
+  const rawPerms = p.permissions
+  const permissions: string[] = Array.isArray(rawPerms)
+    ? rawPerms
+        .map((item) => normalizePermissionNameFromApi(item))
+        .filter((name): name is string => name !== null)
+    : []
+
+  return {
+    id: Number(p.id ?? 0),
+    name: String(p.name ?? ''),
+    is_active: Boolean(p.is_active),
+    permissions,
+    users_count: Number(p.users_count ?? 0),
+  }
+}
 
 export type ListRolesQuery = {
   search?: string
@@ -34,9 +53,7 @@ export async function listRolesResult(query?: ListRolesQuery): Promise<ListRoles
     data: AccessRole[]
     meta?: Partial<RolesListMeta> | null
   }
-  console.log('[listRolesResult] response.data', response.data)
-  console.log('[listRolesResult] normalized', normalized)
-  const data = normalized.data
+  const data = normalized.data.map((row) => normalizeAccessRolePayload(row))
 
   return {
     data,
@@ -56,27 +73,27 @@ export async function listRoles(): Promise<AccessRole[]> {
 
 export async function getRoleById(id: number): Promise<AccessRole> {
   const response = await api.get(`${API_ROUTES.roles}/${id}`)
-  return response.data.data as AccessRole
+  return normalizeAccessRolePayload(response.data.data)
 }
 
 export async function createRole(payload: UpsertAccessRolePayload): Promise<AccessRole> {
   const response = await api.post(API_ROUTES.roles, payload)
-  return response.data.data as AccessRole
+  return normalizeAccessRolePayload(response.data.data)
 }
 
 export async function updateRole(id: number, payload: Partial<UpsertAccessRolePayload>): Promise<AccessRole> {
   const response = await api.put(`${API_ROUTES.roles}/${id}`, payload)
-  return response.data.data as AccessRole
+  return normalizeAccessRolePayload(response.data.data)
 }
 
 export async function toggleRoleStatus(id: number, isCurrentlyActive: boolean): Promise<AccessRole> {
   if (isCurrentlyActive) {
     const response = await api.delete(`${API_ROUTES.roles}/${id}`)
-    return response.data.data as AccessRole
+    return normalizeAccessRolePayload(response.data.data)
   }
 
   const response = await api.put(`${API_ROUTES.roles}/${id}`, { is_active: true })
-  return response.data.data as AccessRole
+  return normalizeAccessRolePayload(response.data.data)
 }
 
 export async function getPermissionsCatalog(): Promise<Record<string, string[]>> {

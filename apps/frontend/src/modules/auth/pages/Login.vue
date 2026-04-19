@@ -1,30 +1,36 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useCompany } from '@/core/company/useCompany'
 import {
   completeTwoFactorLogin,
   fetchAuthenticatedUser,
   fetchSanctumCsrfCookie,
   invalidateAuthenticatedUserCache,
   loginWithCredentials,
+  peekAuthenticatedUser,
 } from '@/modules/auth/services/authService'
+import {
+  isPathAccessibleForUser,
+  resolveHomeByPermission,
+} from '@/router/resolveHomeByPermission'
 
 const router = useRouter()
 const route = useRoute()
 
-function redirectAfterLogin(): void {
+async function redirectAfterLogin(): Promise<void> {
+  const user = peekAuthenticatedUser()
+  const perms = user?.permissions ?? []
   const raw = route.query.redirect
   const candidate = typeof raw === 'string' ? raw.trim() : ''
   if (candidate.startsWith('/') && !candidate.startsWith('//')) {
-    router.push(candidate)
-    return
+    if (isPathAccessibleForUser(candidate, perms)) {
+      await router.push(candidate)
+      return
+    }
   }
-  router.push('/clients')
+  await router.push(resolveHomeByPermission(perms))
 }
-const { company, loadCompany } = useCompany()
-
 const email = ref('')
 const password = ref('')
 const twoFactorCode = ref('')
@@ -33,9 +39,6 @@ const useRecoveryCode = ref(false)
 const requiresTwoFactor = ref(false)
 const errorMessage = ref('')
 const loading = ref(false)
-const companyName = computed(() => company.value?.name || '')
-const companyLogoUrl = computed(() => company.value?.logo_url || null)
-
 const login = async () => {
   loading.value = true
   errorMessage.value = ''
@@ -48,7 +51,7 @@ const login = async () => {
     }
     invalidateAuthenticatedUserCache()
     await fetchAuthenticatedUser({ force: true })
-    redirectAfterLogin()
+    await redirectAfterLogin()
   } catch (e: unknown) {
     errorMessage.value = axios.isAxiosError(e)
       ? String((e.response?.data as { message?: unknown })?.message ?? e.message)
@@ -70,7 +73,7 @@ const submitTwoFactor = async () => {
     )
     invalidateAuthenticatedUserCache()
     await fetchAuthenticatedUser({ force: true })
-    redirectAfterLogin()
+    await redirectAfterLogin()
   } catch (e: unknown) {
     const status = axios.isAxiosError(e) ? e.response?.status : undefined
     if (status === 422) {
@@ -87,9 +90,6 @@ const submitTwoFactor = async () => {
   }
 }
 
-onMounted(() => {
-  void loadCompany()
-})
 </script>
 
 <template>
@@ -100,8 +100,7 @@ onMounted(() => {
     <div class="login-card-wrap">
       <div class="login-card">
         <div class="login-brand">
-          <img v-if="companyLogoUrl" :src="companyLogoUrl" alt="Logótipo da empresa" class="login-brand-logo" />
-          <h1 v-if="companyName" class="login-brand-title">{{ companyName }}</h1>
+          <h1 class="login-brand-title">Sistema de gestão</h1>
           <p class="login-brand-tagline">Acesso ao sistema</p>
         </div>
 

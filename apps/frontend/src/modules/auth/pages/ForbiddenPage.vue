@@ -1,20 +1,32 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+
+import { fetchAuthenticatedUser, peekAuthenticatedUser } from '@/modules/auth/services/authService'
+import { normalizePath } from '@/router/routePermissions'
+import { resolveHomeByPermission, resolveSafeBackPath } from '@/router/resolveHomeByPermission'
 
 const route = useRoute()
 
-/** Apenas caminhos internos relativos (evita open redirect) */
-const safeReturnTo = computed((): string | null => {
-  const raw = route.query.from
-  if (typeof raw !== 'string' || raw === '') {
-    return null
+/** Permissões do `/api/v1/me` (cache ou refresh pontual). */
+const permissions = ref<string[]>([])
+
+onMounted(async () => {
+  const cached = peekAuthenticatedUser()
+  if (cached) {
+    permissions.value = cached.permissions ?? []
+    return
   }
-  if (!raw.startsWith('/') || raw.startsWith('//')) {
-    return null
-  }
-  return raw
+  const user = await fetchAuthenticatedUser()
+  permissions.value = user?.permissions ?? []
 })
+
+const safeHomePath = computed(() => resolveHomeByPermission(permissions.value))
+
+const backPath = computed(() => resolveSafeBackPath(route.query.from, permissions.value))
+
+/** Evita dois botões para o mesmo destino ou “voltar” para rota insegura (já tratado em resolveSafeBackPath). */
+const showBackLink = computed(() => normalizePath(backPath.value) !== normalizePath(safeHomePath.value))
 </script>
 
 <template>
@@ -22,8 +34,8 @@ const safeReturnTo = computed((): string | null => {
     <h1>403 — Acesso negado</h1>
     <p>Não tem permissão para aceder a esta página.</p>
     <div class="actions">
-      <RouterLink v-if="safeReturnTo" class="link" :to="safeReturnTo">Voltar à página anterior</RouterLink>
-      <RouterLink class="link" to="/clients">Ir para o início</RouterLink>
+      <RouterLink v-if="showBackLink" class="link" :to="backPath">Voltar à página anterior</RouterLink>
+      <RouterLink class="link" :to="safeHomePath">Ir para o início</RouterLink>
     </div>
   </div>
 </template>
