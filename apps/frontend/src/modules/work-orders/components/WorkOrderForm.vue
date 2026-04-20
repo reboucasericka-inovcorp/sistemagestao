@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useForm, type SubmissionHandler } from 'vee-validate'
+import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
@@ -97,7 +97,7 @@ const defaultValues: FormData = {
   description: '',
 }
 
-const { handleSubmit, setValues, setErrors } = useForm<FormData>({
+const { setValues, setErrors } = useForm<FormData>({
   validationSchema: toTypedSchema(schema),
   initialValues: defaultValues,
 })
@@ -247,12 +247,13 @@ function applyLaravelValidationErrors(error: unknown): void {
   })
 }
 
-const onSubmit: SubmissionHandler<FormData> = async (values) => {
+const onSubmit = async (values: FormData) => {
   feedbackKind.value = ''
   feedbackMessage.value = ''
   submitting.value = true
 
   try {
+    console.log('[work-orders] submit started')
     setErrors({})
     if (!validateItems()) {
       feedbackKind.value = 'error'
@@ -263,6 +264,7 @@ const onSubmit: SubmissionHandler<FormData> = async (values) => {
     }
 
     const payload = toPayload(values)
+    console.log('[work-orders] submit payload', payload)
     if (!payload.items?.length) {
       feedbackKind.value = 'error'
       feedbackMessage.value = 'Selecione pelo menos um artigo (pesquise e escolha um resultado da lista).'
@@ -283,9 +285,19 @@ const onSubmit: SubmissionHandler<FormData> = async (values) => {
       void router.push('/work-orders')
     }, 400)
   } catch (error: unknown) {
+    console.error('[work-orders] submit failed', error)
     applyLaravelValidationErrors(error)
     feedbackKind.value = 'error'
-    feedbackMessage.value = 'Não foi possível guardar a ordem de trabalho.'
+    if (
+      typeof error === 'object' &&
+      error &&
+      'response' in error &&
+      (error as { response?: { status?: number } }).response?.status === 422
+    ) {
+      feedbackMessage.value = 'Dados inválidos. Verifique os campos assinalados.'
+    } else {
+      feedbackMessage.value = 'Não foi possível guardar a ordem de trabalho.'
+    }
   } finally {
     submitting.value = false
   }
@@ -323,7 +335,7 @@ onBeforeUnmount(() => {
       {{ feedbackMessage }}
     </p>
 
-    <Form class="form" @submit="handleSubmit(onSubmit)">
+    <Form class="form" @submit="onSubmit">
       <FormField v-slot="{ value }" name="number">
         <FormItem>
           <FormLabel>Número</FormLabel>
@@ -414,16 +426,14 @@ onBeforeUnmount(() => {
           :class="['item-row', { 'item-row--error': itemErrors[index] }]"
         >
           <div class="item-grid">
-            <FormItem>
-              <FormLabel>Artigo (pesquisa)</FormLabel>
-              <FormControl>
-                <Input
-                  :model-value="item.article_name"
-                  placeholder="Pesquisar por referência ou nome..."
-                  :disabled="loading || submitting"
-                  @update:model-value="queueArticleSearch(index, String($event ?? ''))"
-                />
-              </FormControl>
+            <div>
+              <label class="item-label">Artigo (pesquisa)</label>
+              <Input
+                :model-value="item.article_name"
+                placeholder="Pesquisar por referência ou nome..."
+                :disabled="loading || submitting"
+                @update:model-value="queueArticleSearch(index, String($event ?? ''))"
+              />
               <div v-if="articleOptionsByItem[index]?.length" class="autocomplete-list">
                 <button
                   v-for="article in articleOptionsByItem[index]"
@@ -436,50 +446,44 @@ onBeforeUnmount(() => {
                 </button>
               </div>
               <p v-if="itemErrors[index]?.article" class="row-error">{{ itemErrors[index]?.article }}</p>
-            </FormItem>
+            </div>
 
-            <FormItem>
-              <FormLabel>Quantidade</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min="1"
-                  step="1"
-                  :model-value="String(item.quantity)"
-                  :disabled="loading || submitting"
-                  @update:model-value="
-                    item.quantity = Number($event ?? 0);
-                    recalculateItemTotal(index)
-                  "
-                />
-              </FormControl>
+            <div>
+              <label class="item-label">Quantidade</label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                :model-value="String(item.quantity)"
+                :disabled="loading || submitting"
+                @update:model-value="
+                  item.quantity = Number($event ?? 0);
+                  recalculateItemTotal(index)
+                "
+              />
               <p v-if="itemErrors[index]?.quantity" class="row-error">{{ itemErrors[index]?.quantity }}</p>
-            </FormItem>
+            </div>
 
-            <FormItem>
-              <FormLabel>Preço</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  :model-value="String(item.price)"
-                  :disabled="loading || submitting"
-                  @update:model-value="
-                    item.price = Number($event ?? 0);
-                    recalculateItemTotal(index)
-                  "
-                />
-              </FormControl>
+            <div>
+              <label class="item-label">Preço</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                :model-value="String(item.price)"
+                :disabled="loading || submitting"
+                @update:model-value="
+                  item.price = Number($event ?? 0);
+                  recalculateItemTotal(index)
+                "
+              />
               <p v-if="itemErrors[index]?.price" class="row-error">{{ itemErrors[index]?.price }}</p>
-            </FormItem>
+            </div>
 
-            <FormItem>
-              <FormLabel>Total linha</FormLabel>
-              <FormControl>
-                <Input :model-value="item.total.toFixed(2)" readonly disabled />
-              </FormControl>
-            </FormItem>
+            <div>
+              <label class="item-label">Total linha</label>
+              <Input :model-value="item.total.toFixed(2)" readonly disabled />
+            </div>
           </div>
 
           <div class="item-actions">

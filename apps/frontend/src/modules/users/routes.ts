@@ -2,4 +2,6 @@ import type { RouteRecordRaw } from 'vue-router'
 
 import UsersHome from '@/modules/users/pages/UsersHome.vue'
 
-export const usersRoutes: RouteRecordRaw[] = [{ path: 'users', name: 'users.home', component: UsersHome }]
+export const usersRoutes: RouteRecordRaw[] = [
+  { path: 'users', name: 'users.home', component: UsersHome, meta: { requiresAuth: true, permission: 'users.read' } },
+]

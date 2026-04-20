@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { handleApiError } from '@/shared/utils/handleApiError'
 import { getSupplierOptions } from '@/modules/proposals/services/proposalService'
 import type { SupplierOption } from '@/modules/proposals/services/proposalService'
@@ -16,6 +17,7 @@ import {
   getSupplierOrdersOptions,
   updateSupplierInvoice,
 } from '@/modules/finance/services/supplierInvoiceService'
+import { getSupplierOrderById } from '@/modules/supplier-orders/services/supplierOrderService'
 import type { UpsertSupplierInvoicePayload } from '@/modules/finance/types/supplierInvoice'
 import type { SupplierInvoiceFile } from '@/modules/finance/types/supplierInvoice'
 import { supplierInvoiceSchema, type SupplierInvoiceFormSchema } from '@/modules/finance/schemas/supplierInvoiceSchema'
@@ -31,12 +33,17 @@ const supplierOptions = ref<SupplierOption[]>([])
 const supplierOrderOptions = ref<Array<{ id: number; number: string }>>([])
 const selectedStatus = ref<'pending_payment' | 'paid'>('pending_payment')
 const existingFiles = ref<SupplierInvoiceFile[]>([])
+const autoFillHintVisible = ref(false)
+const supplierEditedManually = ref(false)
+const totalEditedManually = ref(false)
+const confirmDialog = useConfirmDialog()
+let supplierOrderRequestToken = 0
 const categoryMap: Record<string, string> = {
   'supplier-invoice-document': 'Documento',
   'supplier-invoice-payment-proof': 'Comprovativo de Pagamento',
 }
 
-const { setValues, setFieldValue, setErrors } = useForm<SupplierInvoiceFormSchema>({
+const { values, setValues, setFieldValue, setErrors } = useForm<SupplierInvoiceFormSchema>({
   validationSchema: toTypedSchema(supplierInvoiceSchema),
   initialValues: {
     number: '',
@@ -71,6 +78,8 @@ async function hydrate(): Promise<void> {
     document_file: undefined,
     payment_proof_file: undefined,
   })
+  supplierEditedManually.value = true
+  totalEditedManually.value = true
 }
 
 function onDocumentChange(event: Event): void {
@@ -83,22 +92,26 @@ function onPaymentReceiptChange(event: Event): void {
   setFieldValue('payment_proof_file', input.files?.[0] ?? undefined)
 }
 
+function onSupplierChange(nextValue: string, handleChange: (value: string) => void): void {
+  supplierEditedManually.value = true
+  handleChange(nextValue)
+}
+
+function onTotalAmountChange(nextValue: string, handleChange: (value: string) => void): void {
+  totalEditedManually.value = true
+  handleChange(nextValue)
+}
+
 function downloadFile(fileId: number): void {
   const baseUrl = String(import.meta.env.VITE_BACKEND_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '')
   window.open(`${baseUrl}/api/v1/digital-files/${fileId}/download`, '_blank')
 }
 
-const onSubmit = async (values: SupplierInvoiceFormSchema) => {
+const submitInvoice = async (values: SupplierInvoiceFormSchema, sendPaymentReceiptEmail: boolean) => {
   submitting.value = true
   feedback.value = ''
   try {
     setErrors({})
-
-    let sendPaymentReceiptEmail = false
-    if (values.status === 'paid') {
-      sendPaymentReceiptEmail = window.confirm('Pretende enviar o comprovativo ao Fornecedor?')
-    }
-
     const payload: UpsertSupplierInvoicePayload = {
       number: values.number,
       invoice_date: values.invoice_date,
@@ -147,6 +160,26 @@ const onSubmit = async (values: SupplierInvoiceFormSchema) => {
   }
 }
 
+const onSubmit = async (values: SupplierInvoiceFormSchema) => {
+  if (values.status === 'paid') {
+    confirmDialog.open({
+      title: 'Enviar comprovativo?',
+      description: 'Pretende enviar o comprovativo ao fornecedor?',
+      confirmLabel: 'Enviar',
+      cancelLabel: 'Guardar sem enviar',
+      onConfirm: async () => {
+        await submitInvoice(values, true)
+      },
+      onCancel: async () => {
+        await submitInvoice(values, false)
+      },
+    })
+    return
+  }
+
+  await submitInvoice(values, false)
+}
+
 onMounted(async () => {
   loading.value = true
   try {
@@ -158,6 +191,43 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+watch(
+  () => values.supplier_order_id,
+  async (orderIdRaw) => {
+    autoFillHintVisible.value = false
+    if (!orderIdRaw) return
+
+    const orderId = Number(orderIdRaw)
+    if (!Number.isFinite(orderId) || orderId <= 0) return
+
+    const currentToken = ++supplierOrderRequestToken
+    try {
+      const order = await getSupplierOrderById(orderId)
+      if (currentToken !== supplierOrderRequestToken) return
+
+      let hasAutoFilledData = false
+      if (!supplierEditedManually.value && !values.supplier_id && order.supplier?.id) {
+        setFieldValue('supplier_id', String(order.supplier.id))
+        hasAutoFilledData = true
+      }
+
+      const currentTotal = Number(values.total_amount)
+      if (
+        !totalEditedManually.value &&
+        (!values.total_amount || Number.isNaN(currentTotal) || currentTotal === 0) &&
+        order.total_amount != null
+      ) {
+        setFieldValue('total_amount', String(order.total_amount))
+        hasAutoFilledData = true
+      }
+
+      autoFillHintVisible.value = hasAutoFilledData
+    } catch {
+      autoFillHintVisible.value = false
+    }
+  },
+)
 </script>
 
 <template>
@@ -168,10 +238,16 @@ onMounted(async () => {
     <Form class="form" @submit="onSubmit">
       <FormField v-slot="{ value, handleChange }" name="number">
         <FormItem>
-          <FormLabel>Número</FormLabel>
+          <FormLabel>Número da fatura do fornecedor *</FormLabel>
           <FormControl>
-            <Input :model-value="value" :disabled="loading || submitting" @update:model-value="handleChange" />
+            <Input
+              :model-value="value"
+              :disabled="loading || submitting"
+              placeholder="Ex: FT-2026-123"
+              @update:model-value="handleChange"
+            />
           </FormControl>
+          <p class="text-xs text-muted-foreground">Introduza o número da fatura fornecido pelo fornecedor.</p>
           <FormMessage />
         </FormItem>
       </FormField>
@@ -214,7 +290,7 @@ onMounted(async () => {
               class="native-select"
               :value="String(value ?? '')"
               :disabled="loading || submitting"
-              @change="handleChange(($event.target as HTMLSelectElement).value)"
+              @change="onSupplierChange(($event.target as HTMLSelectElement).value, handleChange)"
             >
               <option value="">Selecione</option>
               <option v-for="supplier in supplierOptions" :key="supplier.id" :value="String(supplier.id)">
@@ -245,6 +321,7 @@ onMounted(async () => {
           <FormMessage />
         </FormItem>
       </FormField>
+      <p v-if="autoFillHintVisible" class="text-xs text-blue-500">Dados sugeridos automaticamente a partir da encomenda.</p>
 
       <FormField v-slot="{ value, handleChange }" name="total_amount">
         <FormItem>
@@ -256,7 +333,7 @@ onMounted(async () => {
               min="0"
               step="0.01"
               :disabled="loading || submitting"
-              @update:model-value="handleChange"
+              @update:model-value="onTotalAmountChange(String($event ?? ''), handleChange)"
             />
           </FormControl>
           <FormMessage />
@@ -317,6 +394,7 @@ onMounted(async () => {
         </Button>
       </div>
     </Form>
+
   </div>
 </template>
 

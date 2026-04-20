@@ -90,7 +90,9 @@ export async function listEvents(filters?: CalendarFilters): Promise<CalendarEve
     },
   })
   const normalized = normalizeListResponse(response.data) as { data: RawCalendarEvent[] }
-  return normalized.data.map(normalizeEvent)
+  return normalized.data
+    .map(normalizeEvent)
+    .filter((eventItem) => eventItem.is_active)
 }
 
 export async function createEvent(payload: UpsertCalendarEventPayload): Promise<CalendarEvent> {
@@ -103,7 +105,7 @@ export async function updateEvent(id: number, payload: Partial<UpsertCalendarEve
   return response.data.data as CalendarEvent
 }
 
-export async function deleteEvent(id: number): Promise<void> {
+export async function deleteCalendarEvent(id: number): Promise<void> {
   await api.delete(`${API_ROUTES.calendarEvents}/${id}`)
 }
 

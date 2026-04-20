@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useApiAction } from '@/composables/useApiAction'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import {
   Table,
   TableBody,
@@ -26,6 +27,7 @@ const errorMessage = ref('')
 const searchText = ref('')
 const searchDebounced = ref('')
 const debounceId = ref<number | null>(null)
+const confirmDialog = useConfirmDialog()
 
 const { loading: deletingLoading, execute } = useApiAction()
 
@@ -98,22 +100,27 @@ async function reloadAndReset(): Promise<void> {
   await load(true)
 }
 
-async function onDelete(id: number): Promise<void> {
-  if (!window.confirm('Tem a certeza que deseja apagar este ficheiro?')) return
+function askDelete(id: number): void {
+  confirmDialog.open({
+    title: 'Confirmar remoção',
+    description: 'Tem a certeza que deseja apagar este ficheiro?',
+    confirmLabel: 'Apagar',
+    onConfirm: async () => {
+      await execute(() => deleteDigitalFile(id), {
+        successMessage: 'Ficheiro removido com sucesso',
+        onSuccess: () => {
+          const isLastItemOnPage = files.value.length === 1
+          if (isLastItemOnPage && pagination.current_page > 1) {
+            pagination.current_page -= 1
+          }
 
-  await execute(() => deleteDigitalFile(id), {
-    successMessage: 'Ficheiro removido com sucesso',
-    onSuccess: () => {
-      const isLastItemOnPage = files.value.length === 1
-      if (isLastItemOnPage && pagination.current_page > 1) {
-        pagination.current_page -= 1
-      }
+          if (pagination.current_page > pagination.last_page) {
+            pagination.current_page = Math.max(1, pagination.last_page)
+          }
 
-      if (pagination.current_page > pagination.last_page) {
-        pagination.current_page = Math.max(1, pagination.last_page)
-      }
-
-      void load(false)
+          void load(false)
+        },
+      })
     },
   })
 }
@@ -173,7 +180,7 @@ defineExpose({
             <TableCell class="text-right">
               <div class="flex justify-end gap-2">
                 <Button size="sm" variant="outline" @click="downloadDigitalFile(file.id)">Download</Button>
-                <Button size="sm" variant="destructive" :disabled="deletingLoading" @click="onDelete(file.id)">
+                <Button size="sm" variant="destructive" :disabled="deletingLoading" @click="askDelete(file.id)">
                   {{ deletingLoading ? 'A apagar...' : 'Apagar' }}
                 </Button>
               </div>
@@ -194,5 +201,6 @@ defineExpose({
         </Button>
       </div>
     </div>
+
   </div>
 </template>

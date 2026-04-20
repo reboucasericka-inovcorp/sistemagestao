@@ -14,6 +14,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+  },
   server: {
     // Alinhar com APP_URL em 127.0.0.1 evita cookies invisíveis ao JS quando o API não é localhost.
     host: '127.0.0.1',

@@ -35,7 +35,10 @@ export type LoginResponsePayload = {
 }
 
 export async function loginWithCredentials(credentials: LoginCredentials): Promise<LoginResponsePayload> {
+  // Evita reutilizar permissões em cache de uma sessão anterior.
+  invalidateAuthenticatedUserCache()
   const response = await sanctumHttp.post<LoginResponsePayload>('/login', credentials)
+  invalidateAuthenticatedUserCache()
   return response.data
 }
 
@@ -43,7 +46,10 @@ export async function completeTwoFactorLogin(payload: {
   code?: string
   recovery_code?: string
 }): Promise<LoginResponsePayload> {
+  // Revalida perfil/permissões após concluir 2FA.
+  invalidateAuthenticatedUserCache()
   const response = await sanctumHttp.post<LoginResponsePayload>('/two-factor-challenge', payload)
+  invalidateAuthenticatedUserCache()
   return response.data
 }
 

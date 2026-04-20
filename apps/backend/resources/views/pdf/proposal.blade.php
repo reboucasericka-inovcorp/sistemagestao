@@ -3,11 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <style>
+@page {
+    margin: 20px;
+}
+
 body {
     font-family: DejaVu Sans, sans-serif;
     font-size: 9.5px;
     color: #000;
-    margin: 16px 22px 36px 22px;
+    margin: 0;
 }
 
 .head-grid {
@@ -135,6 +139,10 @@ body {
     padding: 0 0 0 6px;
 }
 
+.totals-block {
+    page-break-inside: avoid;
+}
+
 .section-title {
     font-size: 12px;
     font-weight: bold;
@@ -208,22 +216,24 @@ body {
 
 .mb-sep {
     border-top: 1px solid #000;
-    margin: 8px 0;
+    margin: 8px 0 6px;
 }
 
 .mb-box {
-    margin-top: 4px;
     width: 100%;
     border-collapse: collapse;
+    page-break-inside: avoid;
 }
 
 .mb-box td {
-    vertical-align: middle;
-    padding: 0;
+    vertical-align: top;
+    padding: 0 0 0 0;
 }
 
-.mb-logo img {
-    height: 35px;
+.mb-logo {
+    width: 55px;
+    height: auto;
+    display: block;
 }
 
 .mb-data {
@@ -408,59 +418,61 @@ body {
             </div>
         </td>
         <td>
-            <table class="totals">
-                <tr>
-                    <td class="label">Subtotal</td>
-                    <td class="percent"></td>
-                    <td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
-                </tr>
-                <tr>
-                    <td class="label">Desconto Linha</td>
-                    <td class="percent"></td>
-                    <td class="value">{{ number_format(0, 2, ',', '.') }} €</td>
-                </tr>
-                <tr>
-                    <td class="label">Desconto Geral</td>
-                    <td class="percent">{{ number_format(0, 2, ',', '.') }} %</td>
-                    <td class="value">{{ number_format(0, 2, ',', '.') }} €</td>
-                </tr>
-                <tr>
-                    <td class="label bold">Total sem IVA</td>
-                    <td class="percent"></td>
-                    <td class="value bold">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
-                </tr>
-                <tr>
-                    <td class="label">IVA</td>
-                    <td class="percent">{{ $vatRatePercent }}</td>
-                    <td class="value">{{ number_format($vatValue, 2, ',', '.') }} €</td>
-                </tr>
-                <tr class="total-final">
-                    <td class="label">Total com IVA</td>
-                    <td class="percent"></td>
-                    <td class="value">{{ number_format($grandTotal, 2, ',', '.') }} €</td>
-                </tr>
-            </table>
+            <div class="totals-block">
+                <table class="totals">
+                    <tr>
+                        <td class="label">Subtotal</td>
+                        <td class="percent"></td>
+                        <td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Desconto Linha</td>
+                        <td class="percent"></td>
+                        <td class="value">{{ number_format(0, 2, ',', '.') }} €</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Desconto Geral</td>
+                        <td class="percent">{{ number_format(0, 2, ',', '.') }} %</td>
+                        <td class="value">{{ number_format(0, 2, ',', '.') }} €</td>
+                    </tr>
+                    <tr>
+                        <td class="label bold">Total sem IVA</td>
+                        <td class="percent"></td>
+                        <td class="value bold">{{ number_format($baseTotal, 2, ',', '.') }} €</td>
+                    </tr>
+                    <tr>
+                        <td class="label">IVA</td>
+                        <td class="percent">{{ $vatRatePercent }}</td>
+                        <td class="value">{{ number_format($vatValue, 2, ',', '.') }} €</td>
+                    </tr>
+                    <tr class="total-final">
+                        <td class="label">Total com IVA</td>
+                        <td class="percent"></td>
+                        <td class="value">{{ number_format($grandTotal, 2, ',', '.') }} €</td>
+                    </tr>
+                </table>
 
-            <div class="doc-note">Este documento não serve de fatura</div>
+                <div class="doc-note">Este documento não serve de fatura</div>
 
-            <div class="mb-sep"></div>
+                <div class="mb-sep"></div>
 
-            <table class="mb-box">
-                <tr>
-                    <td style="width:32%;">
-                        @if($mbImageExists)
-                            <img src="{{ $mbImagePath }}" class="mb-logo" alt="Multibanco">
-                        @else
-                            <span class="mb-fallback">MB<br>MULTIBANCO</span>
-                        @endif
-                    </td>
-                    <td class="mb-data">
-                        Entidade&nbsp;&nbsp;&nbsp;&nbsp;11 473<br>
-                        Referência&nbsp;&nbsp;969 006 950<br>
-                        Valor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;50,00 % {{ number_format($multibancoValor, 2, ',', '.') }} €
-                    </td>
-                </tr>
-            </table>
+                <table class="mb-box">
+                    <tr>
+                        <td style="width:60px;">
+                            @if($mbImageExists)
+                                <img src="{{ $mbImagePath }}" class="mb-logo" alt="Multibanco">
+                            @else
+                                <span class="mb-fallback">MB<br>MULTIBANCO</span>
+                            @endif
+                        </td>
+                        <td class="mb-data">
+                            Entidade&nbsp;&nbsp;&nbsp;&nbsp;11 473<br>
+                            Referência&nbsp;&nbsp;969 006 950<br>
+                            Valor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;50,00 % {{ number_format($multibancoValor, 2, ',', '.') }} €
+                        </td>
+                    </tr>
+                </table>
+            </div>
         </td>
     </tr>
 </table>

@@ -112,7 +112,7 @@ const isItemActive = (item: NavItem): boolean => {
 /** UX: só esconde entradas — segurança continua no backend e no router guard. */
 function canSeeNavEntry(permission?: string): boolean {
   if (!permission) {
-    return true
+    return false
   }
   const perms = authenticatedUser.value?.permissions
   return Array.isArray(perms) && perms.includes(permission)
@@ -183,7 +183,7 @@ const handleLogout = async (): Promise<void> => {
 
 onMounted(async () => {
   try {
-    const user = await fetchAuthenticatedUser()
+    const user = await fetchAuthenticatedUser({ force: true })
 
     if (!user) {
       authenticatedUser.value = null

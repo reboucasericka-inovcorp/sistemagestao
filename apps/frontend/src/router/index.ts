@@ -9,7 +9,6 @@ import {
 import { authRoutes } from '@/modules/auth/routes'
 import { AUTH_PUBLIC_PATHS, resolveHomeByPermission } from '@/router/resolveHomeByPermission'
 import { layoutChildren } from '@/router/layoutRoutes'
-import { resolvePermissionForPath } from '@/router/routePermissions'
 
 function isPublicRoute(to: RouteLocationNormalized): boolean {
   if (to.meta.public) {
@@ -46,7 +45,7 @@ const backofficeEmails = new Set(
 )
 
 async function getCurrentUserEmail(): Promise<string | null> {
-  const user = await fetchAuthenticatedUser()
+  const user = await fetchAuthenticatedUser({ force: true })
   return user?.email?.toLowerCase() ?? null
 }
 
@@ -64,7 +63,7 @@ router.beforeEach(async (to) => {
 
   if (isPublicRoute(to)) {
     if (to.path === '/login') {
-      const user = await fetchAuthenticatedUser()
+      const user = await fetchAuthenticatedUser({ force: true })
       if (user) {
         return { path: resolveHomeByPermission(user.permissions ?? []) }
       }
@@ -73,7 +72,7 @@ router.beforeEach(async (to) => {
     return true
   }
 
-  const user = await fetchAuthenticatedUser()
+  const user = await fetchAuthenticatedUser({ force: true })
   if (!user) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
@@ -82,15 +81,7 @@ router.beforeEach(async (to) => {
     return true
   }
 
-  const metaPermission = to.meta.permission
-  let requiredPermission: string | undefined
-  if (typeof metaPermission === 'string' && metaPermission.length > 0) {
-    requiredPermission = metaPermission
-  } else {
-    requiredPermission = resolvePermissionForPath(to.path)
-  }
-
-  if (requiredPermission && !hasPermission(requiredPermission)) {
+  if (typeof to.meta.permission === 'string' && to.meta.permission.length > 0 && !hasPermission(to.meta.permission)) {
     return {
       path: resolveHomeByPermission(user.permissions ?? []),
       replace: true,

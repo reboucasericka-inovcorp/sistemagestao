@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <style>
+        @page {
+            margin: 20px;
+        }
+
         body {
             font-family: DejaVu Sans, sans-serif;
             font-size: 9.5px;
             color: #111;
-            margin: 16px 22px;
+            margin: 0;
         }
         .top-grid { width: 100%; border-collapse: collapse; }
         .top-grid td { vertical-align: top; }
@@ -62,6 +66,7 @@
         .totals .value { text-align: right; width: 38%; white-space: nowrap; }
         .totals .strong { font-weight: 700; }
         .doc-note { margin-top: 4px; text-align: center; font-size: 10px; font-weight: 700; }
+        .totals-block { page-break-inside: avoid; }
         .footer {
             position: fixed;
             left: 22px;
@@ -175,15 +180,17 @@
             </div>
         </td>
         <td>
-            <table class="totals">
-                <tr><td class="label">Subtotal</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
-                <tr><td class="label">Desconto Linha</td><td class="value">0,00 €</td></tr>
-                <tr><td class="label">Desconto Geral</td><td class="value">0,00 €</td></tr>
-                <tr><td class="label">Total sem IVA</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
-                <tr><td class="label">IVA {{ number_format($vatRate, 2, ',', '.') }} %</td><td class="value">{{ number_format($vatValue, 2, ',', '.') }} €</td></tr>
-                <tr><td class="label strong">Total com IVA</td><td class="value strong">{{ number_format($grandTotal, 2, ',', '.') }} €</td></tr>
-            </table>
-            <div class="doc-note">Este documento não serve de fatura</div>
+            <div class="totals-block">
+                <table class="totals">
+                    <tr><td class="label">Subtotal</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
+                    <tr><td class="label">Desconto Linha</td><td class="value">0,00 €</td></tr>
+                    <tr><td class="label">Desconto Geral</td><td class="value">0,00 €</td></tr>
+                    <tr><td class="label">Total sem IVA</td><td class="value">{{ number_format($baseTotal, 2, ',', '.') }} €</td></tr>
+                    <tr><td class="label">IVA {{ number_format($vatRate, 2, ',', '.') }} %</td><td class="value">{{ number_format($vatValue, 2, ',', '.') }} €</td></tr>
+                    <tr><td class="label strong">Total com IVA</td><td class="value strong">{{ number_format($grandTotal, 2, ',', '.') }} €</td></tr>
+                </table>
+                <div class="doc-note">Este documento não serve de fatura</div>
+            </div>
         </td>
     </tr>
 </table>

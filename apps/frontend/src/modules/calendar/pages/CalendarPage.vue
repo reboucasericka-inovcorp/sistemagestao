@@ -6,14 +6,16 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin, { type DateClickArg } from '@fullcalendar/interaction'
 import type { EventClickArg } from '@fullcalendar/core'
 import ptBrLocale from '@fullcalendar/core/locales/pt-br'
+import { toast } from 'vue-sonner'
 
 import { Button } from '@/components/ui/button'
+import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import CalendarFilters from '@/modules/calendar/components/CalendarFilters.vue'
 import CalendarForm from '@/modules/calendar/components/CalendarForm.vue'
 
 import {
   createEvent,
-  deleteEvent,
+  deleteCalendarEvent,
   listActionOptions,
   listEntityOptions,
   listEvents,
@@ -21,6 +23,7 @@ import {
   listUserOptions,
   updateEvent,
 } from '@/modules/calendar/services/calendarService'
+import { handleApiError } from '@/shared/utils/handleApiError'
 
 import type {
   CalendarActionOption,
@@ -41,11 +44,13 @@ const actions = ref<CalendarActionOption[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
+const calendarRef = ref<InstanceType<typeof FullCalendar> | null>(null)
 
 const filters = reactive<CalendarFiltersType>({})
 const modalOpen = ref(false)
 const selectedDate = ref('')
 const editingEvent = ref<CalendarEventItem | null>(null)
+const confirmDialog = useConfirmDialog()
 
 const calendarEvents = computed(() =>
   events.value.map((eventItem) => ({
@@ -154,14 +159,33 @@ async function onDeleteEvent(id: number): Promise<void> {
   errorMessage.value = ''
 
   try {
-    await deleteEvent(id)
+    await deleteCalendarEvent(id)
+    const calendarApi = calendarRef.value?.getApi()
+    const calendarEvent = calendarApi?.getEventById(String(id))
+    if (calendarEvent) {
+      calendarEvent.remove()
+    }
+    events.value = events.value.filter((eventItem) => eventItem.id !== id)
+    toast.success('Evento removido com sucesso.')
     closeModal()
     await fetchEvents()
-  } catch {
-    errorMessage.value = 'Não foi possível inativar o evento.'
+  } catch (error) {
+    handleApiError(error)
+    errorMessage.value = 'Não foi possível remover o evento.'
   } finally {
     saving.value = false
   }
+}
+
+function onAskDeleteEvent(id: number): void {
+  confirmDialog.open({
+    title: 'Confirmar remoção',
+    description: 'Tem a certeza que deseja apagar este evento?',
+    confirmLabel: 'Apagar',
+    onConfirm: async () => {
+      await onDeleteEvent(id)
+    },
+  })
 }
 
 function onFiltersChange(nextFilters: CalendarFiltersType): void {
@@ -231,7 +255,7 @@ onMounted(async () => {
     </p>
 
     <div class="rounded-md border bg-background p-2">
-      <FullCalendar :options="calendarOptions" />
+      <FullCalendar ref="calendarRef" :options="calendarOptions" />
     </div>
 
     <div
@@ -248,9 +272,10 @@ onMounted(async () => {
           :actions="actions"
           @cancel="closeModal"
           @submit="onSubmitForm"
-          @delete="onDeleteEvent"
+          @delete="onAskDeleteEvent"
         />
       </div>
     </div>
+
   </div>
 </template>

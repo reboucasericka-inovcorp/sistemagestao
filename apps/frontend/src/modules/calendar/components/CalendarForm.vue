@@ -144,6 +144,13 @@ function submit(): void {
     payload,
   })
 }
+
+function handleDelete(): void {
+  const eventId = props.event?.id
+  if (!eventId) return
+
+  emit('delete', eventId)
+}
 </script>
 
 <template>
@@ -253,7 +260,7 @@ function submit(): void {
 
       <div class="flex items-center justify-end gap-2">
         <Button type="button" variant="outline" :disabled="loading" @click="emit('cancel')">Cancelar</Button>
-        <Button v-if="isEditing && props.event?.id" type="button" variant="destructive" :disabled="loading" @click="emit('delete', props.event.id)">
+        <Button v-if="isEditing && props.event?.id" type="button" variant="destructive" :disabled="loading" @click="handleDelete">
           Apagar
         </Button>
         <Button type="submit" :disabled="loading">{{ loading ? 'A guardar...' : 'Guardar' }}</Button>

@@ -5,15 +5,18 @@ export const vatRoutes: RouteRecordRaw[] = [
     path: 'settings/vat',
     name: 'vat.index',
     component: () => import('./pages/VatHome.vue'),
+    meta: { requiresAuth: true, permission: 'vat.read' },
   },
   {
     path: 'settings/vat/new',
     name: 'vat.new',
     component: () => import('./pages/VatForm.vue'),
+    meta: { requiresAuth: true, permission: 'vat.create' },
   },
   {
     path: 'settings/vat/:id/edit',
     name: 'vat.edit',
     component: () => import('./pages/VatForm.vue'),
+    meta: { requiresAuth: true, permission: 'vat.update' },
   },
 ]
